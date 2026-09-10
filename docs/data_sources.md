@@ -87,6 +87,25 @@ $27,902.21 (621, without CC/MCC); commercial payers ranged $26,000-$61,414.
   separately-reported later increase to $100. **Action needed:** check
   Medicines360's current published 340B price list directly before using
   either figure as a current 2026 value.
+- **Whether Denver Health (or any specific hospital this model is
+  anchored to) is actually 340B-registered: checked 2026-09-11, could not
+  confirm either way.** HRSA's public 340B OPAIS lookup
+  (`https://340bopais.hrsa.gov/`) is a Blazor single-page app; static
+  `curl` requests return only the unrendered app shell, and guessed API
+  endpoint paths returned empty/404 responses. A genuine answer requires
+  either using the site's own search UI interactively (`SearchCe` page) or
+  downloading its published "Covered Entity Daily Report" export (Excel/
+  JSON, linked from `https://340bopais.hrsa.gov/Reports`) and searching it
+  directly — not yet done. Separately relevant: Disproportionate Share
+  Hospitals (the 340B category Denver Health would most plausibly fall
+  under) are subject to the "GPO Prohibition" — they cannot purchase
+  covered outpatient drugs through group-purchasing-organization
+  arrangements at all. If Denver Health is a DSH-category covered entity,
+  `iud_device_acquisition_cost_gpo` would not even be an option available
+  to it; its real choice would be 340B pricing or full undiscounted price,
+  not GPO. This model's GPO-price scenario should be understood as
+  applying to a non-DSH, non-340B hospital, not necessarily Denver Health
+  itself.
 - **CPT 58300 commercial professional-fee range ($75-$125):** from
   aggregator/billing-service websites (billingfreedom.com,
   obgynbillco.com), not independently confirmed against a second primary
@@ -179,19 +198,84 @@ cost. Not directly comparable to either other figure without adjustment
 so it is reference-only, not used in the base-case cost engine, but useful
 triangulation confirming the order of magnitude.
 
+## Standalone office-insertion failure/escalation risk (added 2026-09-11)
+
+- **Saito-Tom LY, Soon RA, Harris SC, Salcedo J, Kaneshiro BE. Levonorgestrel
+  Intrauterine Device Use in Overweight and Obese Women. Hawaii J Med
+  Public Health 2015.** Directly read via WebFetch. Retrospective cohort,
+  149 women (55 normal weight, 45 overweight, 49 obese). Obese group: 4%
+  (2/49) failed insertion, 8% (4/49) "difficult" insertion; no
+  statistically significant difference by BMI group (P=.47). **This is
+  the source for `standalone_office_failure_probability`.**
+- A second candidate source was checked and rejected: Harrison, "Failed
+  IUD insertions in community practice," *Contraception* 2012 (19.6%
+  failure in nulliparous women choosing emergency contraception, inserted
+  by nurse practitioners without adjuvant measures, at family-planning
+  clinics). Rejected because that population (nulliparous,
+  emergency-contraception-seeking, nurse-practitioner-inserted, no
+  adjuvant measures) is a much weaker match to this project's target
+  population than Saito-Tom's obese-BMI-specific cohort, even though
+  Saito-Tom's sample is smaller (n=49 obese women, only 2 failures).
+- On failure, the model assumes escalation to a sedated re-attempt at the
+  same per-minute cost as the combined arm's OR/anesthesia minutes
+  (`compute_added_or_cost()`), with no duplicate device or professional
+  fee charged. This is a simplifying modeling assumption, not itself a
+  sourced escalation-cost figure — no study measures what actually happens
+  economically after a failed office IUD attempt.
+
+## Two omissions decided explicitly, not silently (added 2026-09-11)
+
+- **Routine device removal (CPT 58301, $212.58 cash price per the Denver
+  Health MRF already in this table)** is not priced in the incremental
+  comparison. Every device is eventually removed regardless of which arm
+  inserted it, so it cancels out under the incremental-cost principle —
+  recorded as `iud_routine_removal_professional_fee` (reference-only) so
+  the omission is documented.
+- **Differential uterine-perforation risk by insertion setting** is not
+  applied. Baseline perforation risk (0.3-2.6 per 1,000 insertions,
+  general LNG/copper-IUD literature) is recorded as
+  `iud_perforation_risk_baseline` (reference-only), but the literature on
+  whether anesthesia/sedation changes that risk is genuinely mixed: one
+  source suggests general anesthesia may modestly increase risk (excess
+  force at the internal os without patient feedback), while a separately
+  cited large study found no association between anesthesia use and
+  perforation. No confident directional evidence exists to differentiate
+  the two arms, so neither arm gets an adjustment. Revisit if a study
+  specifically comparing office vs. sedated/OR insertion settings is
+  found.
+
+## Inflation adjustment (added 2026-09-11)
+
+`R/inflation.R`, `data/cpi_medical_care.csv`, and `data/cpi_all_items.csv`
+are now wired up (adapted directly from the sibling `emb_colonoscopy`
+project's `R/inflation.R`). `direct_room_cost_per_minute` and
+`anesthesia_cost_per_minute` (2014 dollars) are now inflation-adjusted to
+`reference_dollar_year` (2026) before being used in
+`compute_added_or_cost()`. This project's `data/cpi_medical_care.csv` 2014
+row is a REAL value (435.293, the average of the January and July FRED
+series CUUS0000SAM data points for 2014, downloaded directly
+2026-09-10/11 from
+`https://fred.stlouisfed.org/graph/fredgraph.csv?id=CUUS0000SAM`) rather
+than the sibling project's own flagged-placeholder 2014 value
+(431.9, geometrically interpolated, not a real reported BLS figure) — this
+project's CPI table is, on this one point, better-sourced than the one it
+was copied from. Consider backporting this real value to the sibling
+project's `data/cpi_medical_care.csv` at some point.
+
 ## Reused from the sibling `emb_colonoscopy` project
 
-`office_visit_em_cost`, `direct_room_cost_per_minute`, and
-`anesthesia_cost_per_minute` are copied directly from that project's
-already-verified extractions (CMS Physician & Other Practitioners by
-Provider and Service PUF for the E/M visit; Childers & Maggard-Gibbons,
-*JAMA Surg*, for the OR/anesthesia per-minute costs) rather than re-pulled
-fresh, because the underlying claim transfers directly. See that project's
-`docs/data_sources.md` and `config/model_parameters.csv` for the full
-citation trail.
+`office_visit_em_cost`, `direct_room_cost_per_minute`,
+`anesthesia_cost_per_minute`, and `patient_time_opportunity_cost_per_visit`
+are copied directly from that project's already-verified extractions (CMS
+Physician & Other Practitioners by Provider and Service PUF for the E/M
+visit; Childers & Maggard-Gibbons, *JAMA Surg*, for the OR/anesthesia
+per-minute costs; Ray et al. 2015 for the patient-time/travel opportunity
+cost) rather than re-pulled fresh, because the underlying claim transfers
+directly. See that project's `docs/data_sources.md` and
+`config/model_parameters.csv` for the full citation trail.
 
-**Not yet done:** `direct_room_cost_per_minute` and
-`anesthesia_cost_per_minute` are still in their original 2014 dollars; this
-scaffold has not wired up an inflation-adjustment step (`R/inflation.R`,
-`data/cpi_medical_care.csv`) yet. Do this before reporting any dollar total
-from this model.
+**Done as of 2026-09-11:** `direct_room_cost_per_minute` and
+`anesthesia_cost_per_minute` are now inflation-adjusted to
+`reference_dollar_year` via `R/inflation.R` before use (see "Inflation
+adjustment" above) — this scaffold no longer reports 2014-dollar OR/
+anesthesia costs mixed in with 2026-dollar everything-else.

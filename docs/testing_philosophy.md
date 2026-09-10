@@ -29,3 +29,17 @@ just described.
 This is exactly the kind of bug a reviewer could introduce accidentally
 (copy-pasting one strategy's cost function into the other and forgetting to
 update which probability it reads), and the test suite catches it.
+
+**2026-09-11 — escalation-cost probability weighting
+(`R/strategy_costs.R`, `compute_standalone_strategy_cost()`).**
+
+Added alongside the failure-escalation cost (Saito-Tom et al. 2015) and
+the societal patient-time add-on. Planted defect: hardcoded the escalation
+cost to always apply (multiplied `compute_added_or_cost()` by `1` instead
+of `failure_probability`) via a scripted `sed` substitution.
+
+- **Red:** the independent-confirmation test failed on both the
+  healthcare-sector and societal-total assertions, off by exactly $318 in
+  each case (the size of applying the full escalation cost unconditionally
+  instead of weighting it by the ~4% failure probability).
+- **Reverted, confirmed green:** all tests pass again.

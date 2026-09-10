@@ -106,7 +106,19 @@ See `docs/data_sources.md` for the full citation trail.
 
 ## Status
 
-Scaffolding stage: the parameter table, cost engine (now including an
-expected device-replacement cost for expulsion in both arms), and one
-base-case driver script exist with real (if provisional) starting values.
-No sensitivity analysis, manuscript, or figures yet.
+Scaffolding stage, but the cost engine is now reasonably complete for a
+first pass: both arms carry an expected device-replacement cost for
+expulsion (Masten et al. 2024), the standalone arm carries an expected
+escalation cost for outright insertion failure (Saito-Tom et al. 2015),
+OR/anesthesia costs are inflation-adjusted to a common reference year
+(`R/inflation.R`), and both arms report a societal patient-time/travel
+add-on alongside the healthcare-sector total (Ray et al. 2015, reused from
+the sibling project). Every new piece of blocking logic has been
+mutation-tested (see `docs/testing_philosophy.md`).
+
+Two real data gaps remain unresolved despite direct attempts: the GPO
+device-acquisition cost ($537-$600) could not be verified from its only
+found source, and whether the model's anchor hospital is actually
+340B-registered could not be confirmed against HRSA's public database
+(see `docs/data_sources.md`). No sensitivity analysis, manuscript, or
+figures yet.
