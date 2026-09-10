@@ -1,0 +1,8 @@
+.Rproj.user/
+.Rhistory
+.RData
+.Ds_Store
+tables/*.csv
+tables/*.txt
+figures/*.png
+figures/*.jpeg
