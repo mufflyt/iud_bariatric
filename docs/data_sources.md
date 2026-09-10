@@ -56,17 +56,35 @@ $27,902.21 (621, without CC/MCC); commercial payers ranged $26,000-$61,414.
 
 ## Secondary-source numbers needing re-verification
 
-- **Non-340B GPO acquisition cost ($537-$600):** from a Physicians'
-  Alliance of America pricing bulletin summarizing manufacturer pricing. A
-  direct fetch of the underlying MDedge article
-  (`https://www.mdedge.com/obgyn/article/103902/gynecology/what-does-liletta-cost-non-340b-providers`)
-  was attempted but the response was truncated and did not independently
-  confirm the figures. **Action needed:** re-fetch that article in full, or
-  find a primary GPO contract/invoice, before treating $537-$600 as settled.
-- **340B price ($50, later reportedly $100):** the $50 figure is directly
-  quoted from a 2016 AAFCPAs article citing a Medicines360 announcement
-  ("this price will never increase"). A separate, unverified secondary
-  source claims it was later raised to $100. **Action needed:** check
+- **Non-340B GPO acquisition cost ($537-$600): verification ATTEMPTED and
+  FAILED, 2026-09-10.** The only source for this range is a single MDedge
+  ObGyn article
+  (`https://www.mdedge.com/obgyn/article/103902/gynecology/what-does-liletta-cost-non-340b-providers`).
+  Four independent methods to read it directly all failed: WebFetch
+  returned truncated/no content on two separate attempts; `curl` with a
+  browser user-agent returned only a cookie-consent/JS-loader shell (the
+  page requires client-side rendering and appears authwall-gated, sending
+  `authlevel=0`); `web.archive.org` is blocked outright for this tool; and
+  the site's own beta subdomain (found via a targeted search,
+  `mdedge9-beta.mdedge.com`) is not publicly routable
+  (`connect ECONNREFUSED`). The Physicians' Alliance of America "Liletta
+  Pricing Update" bulletin, which cites the same figures secondhand, was
+  checked directly and turned out to be a members-only order bulletin
+  behind a login — it only confirms that AbbVie raised Liletta's WAC as of
+  January 1, 2026, not the $537/$600 numbers themselves. **This parameter
+  remains unverified.** Next step for real verification: a hospital
+  pharmacy buyer's own GPO contract/invoice, a paid pricing database
+  (Medi-Span, RedBook), or a readable (non-authwalled) copy of the MDedge
+  article.
+- **340B price ($50, later reportedly $100): partially corroborated,
+  still unresolved for 2026.** The $50 figure is directly quoted from a
+  2016 AAFCPAs article citing a Medicines360 announcement ("this price
+  will never increase"). A second, independently-worded source (a 340B
+  Prime Vendor Program overview page, checked 2026-09-10) also states
+  Liletta's "federal 340B pricing is $50," without citing a date. Two
+  independent mentions of the same figure is modest reassurance, but
+  neither source is dated to 2026, and neither confirms or refutes the
+  separately-reported later increase to $100. **Action needed:** check
   Medicines360's current published 340B price list directly before using
   either figure as a current 2026 value.
 - **CPT 58300 commercial professional-fee range ($75-$125):** from
