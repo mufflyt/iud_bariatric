@@ -13,12 +13,38 @@
 #'   insertion professional fee, plus incremental operating-room and
 #'   anesthesia minutes at the time of the already-scheduled bariatric
 #'   surgery.
+#'
+#' Both arms also carry an EXPECTED replacement cost for device expulsion,
+#' since Masten et al. 2024 (J Pediatr Adolesc Gynecol) found combined
+#' bariatric-surgery placement carries a significantly higher 12-month
+#' expulsion rate than non-combined placement (16.3% vs. 5.6%, adjusted
+#' OR=3.23, P=.024) -- a real cost/effectiveness tradeoff working against
+#' the combined arm's facility-cost advantage. A replacement is modeled as
+#' its own standalone-style encounter (diagnosis office visit + new device
+#' + reinsertion fee), regardless of which arm's device expelled, since by
+#' the time expulsion is discovered the patient is no longer in the OR.
+
+#' Compute the expected cost of replacing an expelled device
+#'
+#' @param model_parameters Tibble from [load_model_parameters()].
+#' @param expulsion_probability_parameter Character scalar naming the
+#'   strategy-specific expulsion-probability parameter to use.
+#' @return Numeric scalar: expulsion probability * full replacement-encounter cost.
+compute_expected_replacement_cost <- function(model_parameters, expulsion_probability_parameter) {
+  expulsion_probability <- get_parameter_value(model_parameters, expulsion_probability_parameter)
+  device_cost <- get_parameter_value(model_parameters, "iud_device_acquisition_cost_gpo")
+  professional_fee <- get_parameter_value(model_parameters, "iud_insertion_professional_fee")
+  office_visit_cost <- get_parameter_value(model_parameters, "office_visit_em_cost")
+
+  expulsion_probability * (device_cost + professional_fee + office_visit_cost)
+}
 
 #' Compute the standalone strategy's expected cost
 #'
 #' @param model_parameters Tibble from [load_model_parameters()].
 #' @return A one-row tibble: `strategy`, `device_cost`, `professional_fee`,
-#'   `office_visit_cost`, `expected_total_cost`.
+#'   `office_visit_cost`, `added_or_cost`, `expected_replacement_cost`,
+#'   `expected_total_cost`.
 compute_standalone_strategy_cost <- function(model_parameters) {
   device_cost <- get_parameter_value(
     model_parameters, "iud_device_acquisition_cost_gpo"
@@ -29,6 +55,9 @@ compute_standalone_strategy_cost <- function(model_parameters) {
   office_visit_cost <- get_parameter_value(
     model_parameters, "office_visit_em_cost"
   )
+  expected_replacement_cost <- compute_expected_replacement_cost(
+    model_parameters, "iud_expulsion_probability_standalone"
+  )
 
   tibble::tibble(
     strategy = "standalone",
@@ -36,7 +65,9 @@ compute_standalone_strategy_cost <- function(model_parameters) {
     professional_fee = professional_fee,
     office_visit_cost = office_visit_cost,
     added_or_cost = 0,
-    expected_total_cost = device_cost + professional_fee + office_visit_cost
+    expected_replacement_cost = expected_replacement_cost,
+    expected_total_cost = device_cost + professional_fee + office_visit_cost +
+      expected_replacement_cost
   )
 }
 
@@ -67,13 +98,19 @@ compute_combined_strategy_cost <- function(model_parameters) {
   anesthesia_cost_per_minute <- get_parameter_value(model_parameters, "anesthesia_cost_per_minute")
   added_or_cost <- added_minutes * (room_cost_per_minute + anesthesia_cost_per_minute)
 
+  expected_replacement_cost <- compute_expected_replacement_cost(
+    model_parameters, "iud_expulsion_probability_combined"
+  )
+
   tibble::tibble(
     strategy = "combined",
     device_cost = device_cost,
     professional_fee = professional_fee,
     office_visit_cost = 0,
     added_or_cost = added_or_cost,
-    expected_total_cost = device_cost + professional_fee + added_or_cost
+    expected_replacement_cost = expected_replacement_cost,
+    expected_total_cost = device_cost + professional_fee + added_or_cost +
+      expected_replacement_cost
   )
 }
 

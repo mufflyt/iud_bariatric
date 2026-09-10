@@ -12,10 +12,21 @@ Kyleena) in a reproductive-age patient undergoing bariatric surgery:
    patient is already receiving.
 
 This repository follows the same conventions and evidentiary discipline as
-[`emb_colonoscopy`](https://github.com/mufflyt/emb_colonoscopy) (a sibling
-cost-minimization model for Lynch-syndrome endometrial-biopsy strategies):
-every parameter in `config/model_parameters.csv` carries a source citation,
-an evidence tier, and a `provisional` flag, and no dollar figure enters the
+[`emb_colonoscopy`](https://github.com/mufflyt/emb_colonoscopy), a sibling
+cost-minimization model built on the identical logic. That project compares
+three ways to obtain an endometrial biopsy in women with Lynch syndrome (a
+hereditary condition requiring periodic endometrial-cancer surveillance):
+a standalone office biopsy, an operative dilation and curettage (D&C), or
+an endometrial biopsy performed *during* a surveillance colonoscopy the
+patient is already having, under the sedation the colonoscopy already
+requires, rather than as its own separate procedure. That third option
+("EMB at the time of colonoscopy") is the same structural idea this
+project applies to a different device and a different host procedure:
+piggy-back a minor procedure onto anesthesia/sedation the patient is
+already receiving, and ask whether that actually saves money once every
+real incremental cost, not just the obvious ones, is counted. Every
+parameter in `config/model_parameters.csv` carries a source citation, an
+evidence tier, and a `provisional` flag, and no dollar figure enters the
 model without a traceable primary source.
 
 ## Why this question, and why it's harder than the colonoscopy analog
@@ -52,6 +63,32 @@ device (what it actually pays its pharmacy/GPO or 340B contract), not a
 Medicare allowed amount, since there is frequently no separate reimbursement
 to net against at all.
 
+## Clinical precedent, and why combined placement isn't a free lunch
+
+Combined bariatric-surgery IUD placement is not a hypothetical this project
+invented: Hillman et al. (*J Womens Health* 2011) describe 23 of 25
+adolescent bariatric-surgery patients (92%) having a levonorgestrel IUD
+placed at the time of surgery, under the same anesthesia, specifically
+because it's more convenient and avoids a difficult standalone insertion in
+a nulliparous patient. Thornton et al. (*Contraception* 2021), studying
+postoperative contraceptive choice in 460 bariatric patients, explicitly
+names "coordinating combined bariatric and permanent contraception
+procedures" as an unaddressed direction for future work, without studying
+it themselves. That's the gap this project fills: not whether combined
+placement happens (it does), but whether it's actually cheaper once every
+real cost is counted.
+
+It is not automatically cheaper. Masten et al. (*J Pediatr Adolesc Gynecol*
+2024) found that combined bariatric-surgery placement carries a
+significantly *higher* 12-month expulsion rate than standalone placement
+(16.3% vs. 5.6%, adjusted OR=3.23, P=.024) in a cohort of 588 adolescents
+and young adults. An expelled device has to be replaced, at full cost. This
+model prices that risk into both arms (see `iud_expulsion_probability_standalone`/
+`_combined` in `config/model_parameters.csv`), and it's a big part of why
+the current base case finds combined placement *more* expensive than
+standalone, the opposite of the sibling Lynch-syndrome project's finding.
+See `docs/data_sources.md` for the full citation trail.
+
 ## Repository layout
 
 - `config/model_parameters.csv` — every model input, one row per parameter,
@@ -69,6 +106,7 @@ to net against at all.
 
 ## Status
 
-Scaffolding stage: the parameter table, cost engine, and one base-case driver
-script exist with real (if provisional) starting values. No sensitivity
-analysis, manuscript, or figures yet.
+Scaffolding stage: the parameter table, cost engine (now including an
+expected device-replacement cost for expulsion in both arms), and one
+base-case driver script exist with real (if provisional) starting values.
+No sensitivity analysis, manuscript, or figures yet.

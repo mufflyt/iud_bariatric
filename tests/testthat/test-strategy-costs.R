@@ -1,11 +1,15 @@
-test_that("compute_standalone_strategy_cost sums device + professional fee + office visit", {
+test_that("compute_standalone_strategy_cost sums device + professional fee + office visit + expected replacement", {
   model_parameters <- test_model_parameters()
   standalone_cost <- compute_standalone_strategy_cost(model_parameters)
 
   expect_equal(standalone_cost$device_cost, 568.50)
   expect_equal(standalone_cost$professional_fee, 116.08)
   expect_equal(standalone_cost$office_visit_cost, 88.76)
-  expect_equal(standalone_cost$expected_total_cost, 568.50 + 116.08 + 88.76)
+  expect_equal(standalone_cost$expected_replacement_cost, 0.056 * (568.50 + 116.08 + 88.76))
+  expect_equal(
+    standalone_cost$expected_total_cost,
+    568.50 + 116.08 + 88.76 + 0.056 * (568.50 + 116.08 + 88.76)
+  )
 })
 
 test_that("compute_combined_strategy_cost excludes the professional fee when the toggle is FALSE", {
@@ -15,7 +19,11 @@ test_that("compute_combined_strategy_cost excludes the professional fee when the
   expect_equal(combined_cost$professional_fee, 0)
   expect_equal(combined_cost$office_visit_cost, 0)
   expect_equal(combined_cost$added_or_cost, 10 * (20.90 + 3.42))
-  expect_equal(combined_cost$expected_total_cost, 568.50 + 10 * (20.90 + 3.42))
+  expect_equal(combined_cost$expected_replacement_cost, 0.163 * (568.50 + 116.08 + 88.76))
+  expect_equal(
+    combined_cost$expected_total_cost,
+    568.50 + 10 * (20.90 + 3.42) + 0.163 * (568.50 + 116.08 + 88.76)
+  )
 })
 
 test_that("compute_combined_strategy_cost includes the professional fee when the toggle is TRUE", {
@@ -27,6 +35,18 @@ test_that("compute_combined_strategy_cost includes the professional fee when the
   combined_cost <- compute_combined_strategy_cost(toggled_parameters)
 
   expect_equal(combined_cost$professional_fee, 116.08)
+})
+
+test_that("combined arm's higher expulsion rate produces a higher expected replacement cost", {
+  # Directly encodes the Masten et al. 2024 finding this parameterization is
+  # built on: combined placement carries higher expulsion risk, so its
+  # expected replacement cost should exceed the standalone arm's, even
+  # though both arms replace an expelled device via the same formula.
+  model_parameters <- test_model_parameters()
+  standalone_cost <- compute_standalone_strategy_cost(model_parameters)
+  combined_cost <- compute_combined_strategy_cost(model_parameters)
+
+  expect_gt(combined_cost$expected_replacement_cost, standalone_cost$expected_replacement_cost)
 })
 
 test_that("compute_strategy_costs returns exactly one row per strategy", {
@@ -50,9 +70,14 @@ test_that("INDEPENDENT CONFIRMATION: base-case incremental cost matches a from-s
   minutes <- get_parameter_value(model_parameters, "combined_arm_added_minutes")
   room_per_min <- get_parameter_value(model_parameters, "direct_room_cost_per_minute")
   anesthesia_per_min <- get_parameter_value(model_parameters, "anesthesia_cost_per_minute")
+  expulsion_standalone <- get_parameter_value(model_parameters, "iud_expulsion_probability_standalone")
+  expulsion_combined <- get_parameter_value(model_parameters, "iud_expulsion_probability_combined")
+  replacement_encounter_cost <- device + professional_fee + office_visit
 
-  expected_standalone <- device + professional_fee + office_visit
-  expected_combined <- device + minutes * (room_per_min + anesthesia_per_min)
+  expected_standalone <- device + professional_fee + office_visit +
+    expulsion_standalone * replacement_encounter_cost
+  expected_combined <- device + minutes * (room_per_min + anesthesia_per_min) +
+    expulsion_combined * replacement_encounter_cost
 
   strategy_costs <- compute_strategy_costs(model_parameters)
 

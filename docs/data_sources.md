@@ -94,12 +94,16 @@ $27,902.21 (621, without CC/MCC); commercial payers ranged $26,000-$61,414.
 
 ## Literature gaps (searched for, not found)
 
-- **No study quantifies added operating-room time for IUD insertion
-  specifically at the time of bariatric surgery.** Multiple targeted
-  searches (2026-09-10) turned up only general bariatric-contraception
-  access/counseling literature (e.g. "Optimizing contraceptive access for
-  women undergoing bariatric surgery," PubMed 33004300), not intraoperative
-  timing data.
+- **Combined bariatric-surgery IUD placement is real, documented practice
+  (see Hillman 2011 and Masten 2024 below), but no study quantifies the
+  added operating-room TIME it takes, and none does a COST comparison
+  between placing it standalone vs. at the time of surgery.** Multiple
+  targeted searches (2026-09-10) and a 15-paper literature review
+  (2026-09-11) turned up general bariatric-contraception access/counseling
+  literature and two feasibility/expulsion-outcome cohorts, but no
+  intraoperative timing data and no economic analysis of insertion
+  setting. That remaining gap, minutes and dollars, not whether it's done,
+  is what this project fills.
 - **The closest analog, IUD insertion at cesarean delivery**, is well
   studied for safety/expulsion/breastfeeding outcomes but the accessible
   literature describes added time only qualitatively ("minimal"), not in
@@ -110,6 +114,70 @@ $27,902.21 (621, without CC/MCC); commercial payers ranged $26,000-$61,414.
   (Children's Hospital Colorado / CU Anschutz adolescent gynecology, "IUD
   Placement Under Anesthesia"), not a bariatric-specific or even a
   peer-reviewed timed study. Revisit if one is ever published.
+
+## Clinical precedent and expulsion risk (added 2026-09-11, from a 15-paper literature review)
+
+A systematic review of 15 candidate papers (see the project's own review
+notes, session of 2026-09-11) found that combined bariatric-surgery IUD
+placement is not hypothetical, it is documented, already-practiced clinical
+care, and it carries a real safety tradeoff this model did not originally
+capture:
+
+- **Hillman JB, Miller RJ, Inge TH. Menstrual concerns and intrauterine
+  contraception among adolescent bariatric surgery patients. J Womens
+  Health 2011;20(4):533-538.** Retrospective cohort, 25 adolescent
+  bariatric-surgery patients; 23/25 (92%) had a levonorgestrel IUD placed
+  *at the time of* bariatric surgery under the same anesthesia. States the
+  clinical rationale directly: combined placement "is desirable in that it
+  is convenient for the patients and ensures no unplanned pregnancies,"
+  citing insertion difficulty in nulliparous adolescents as a further
+  reason to use existing anesthesia. No cost or OR-time data. Establishes
+  clinical precedent and patient acceptance, not economics.
+- **Masten E, et al. Body Mass Index and Levonorgestrel Device Expulsion in
+  Adolescents and Young Adults. J Pediatr Adolesc Gynecol
+  2024;37:407-411.** Retrospective chart review, 588 nulliparous patients
+  aged 10-19, 43 (16.2%) placed as a combination case with metabolic/
+  bariatric surgery (MBS). **This is the source for
+  `iud_expulsion_probability_standalone`/`_combined` and
+  `iud_expulsion_odds_ratio_combined_vs_standalone`** — combined placement
+  carried a significantly higher 12-month expulsion rate than non-combined
+  placement (16.3% vs. 5.6% overall; adjusted OR=3.23, P=.024). Wired
+  directly into `R/strategy_costs.R`'s `compute_expected_replacement_cost()`
+  for both arms; see `docs/testing_philosophy.md` for the mutation test
+  proving this is read correctly by each strategy.
+- **Thornton KA, et al. Counseling, contraception, and conception rates in
+  patients undergoing bariatric surgery: a retrospective review.
+  Contraception 2021.** Retrospective cohort, 460 bariatric-surgery
+  patients; describes postoperative contraceptive choice (LNG-IUD most
+  common LARC) and conception rates, and explicitly names
+  *"coordinating combined bariatric and permanent contraception
+  procedures"* as an unaddressed future direction, without studying it.
+  Cited in the README as the stated literature gap this project fills.
+
+None of these three papers does a cost-minimization comparison of
+insertion setting/timing, that gap is what this project fills, but Masten
+2024 in particular changes the model's conclusion: it is the reason the
+combined arm is not simply "device cost + OR minutes," it also carries a
+higher expected replacement cost than the standalone arm.
+
+## An independent commercial-claims cost benchmark
+
+**Nguyen ABT, et al. Descriptive study of the real-world, long-term cost
+estimates and duration of use for hormonal and nonhormonal intrauterine
+devices using US commercial insurance claims. J Manag Care Spec Pharm
+2023;29(12):1303-1311.** IBM MarketScan commercial claims, 63,386 IUD
+insertions in 2014, 5-year follow-up. Reports a 52mg levonorgestrel IUD's
+combined device + physician-insertion claim cost as $1,107 (+/-$4) in 2014
+dollars, and $1,514 cumulative over 5 years (driven mostly by AUB/
+ovarian-cyst workup and removal/reinsertion, not modeled here). This is a
+third independent cost channel (`iud_commercial_claims_cost_benchmark`),
+alongside the Denver Health chargemaster cash price ($837.67) and the
+unverified GPO estimate ($537-$600): what a commercial payer actually paid
+nationally, sitting conceptually between chargemaster and true acquisition
+cost. Not directly comparable to either other figure without adjustment
+(different year, and "paid claim" is not "hospital's acquisition cost"),
+so it is reference-only, not used in the base-case cost engine, but useful
+triangulation confirming the order of magnitude.
 
 ## Reused from the sibling `emb_colonoscopy` project
 
