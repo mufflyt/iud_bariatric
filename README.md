@@ -120,5 +120,17 @@ Two real data gaps remain unresolved despite direct attempts: the GPO
 device-acquisition cost ($537-$600) could not be verified from its only
 found source, and whether the model's anchor hospital is actually
 340B-registered could not be confirmed against HRSA's public database
-(see `docs/data_sources.md`). No sensitivity analysis, manuscript, or
-figures yet.
+(see `docs/data_sources.md`). No PSA/deterministic sensitivity analysis,
+manuscript, or figures yet.
+
+A Medicaid payer scenario (`analysis/02_scenario_analysis.R`) is now
+built, using a real, directly-confirmed Colorado Medicaid rate for the
+office-visit component and a national estimate for the insertion fee
+(Colorado's own fee schedule doesn't list CPT 58300). Researching it
+surfaced something directly relevant: Colorado Medicaid already has a
+real carve-out policy that separately pays for a LARC device inserted
+during an otherwise-DRG-bundled inpatient stay, exactly the structural
+problem this project's own Denver Health data independently found, just
+scoped to delivery admissions rather than bariatric surgery. The scenario
+models what happens if that same mechanism were extended to bariatric
+surgery: the combined arm's cost disadvantage gets worse, not better.

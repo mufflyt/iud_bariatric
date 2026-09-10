@@ -262,6 +262,72 @@ project's CPI table is, on this one point, better-sourced than the one it
 was copied from. Consider backporting this real value to the sibling
 project's `data/cpi_medical_care.csv` at some point.
 
+## Medicaid payer scenario (added 2026-09-11)
+
+Medicaid is a genuinely more relevant payer to explore here than Medicare
+(which excludes contraceptive devices entirely), since Medicaid is a
+mandatory-coverage payer for contraception and is a major real-world
+funder of LARC insertion nationally.
+
+- **Colorado Medicaid's real CPT 99213 rate: $77.39, directly confirmed.**
+  Downloaded Colorado HCPF's own "Health First Colorado Physician Fee
+  Schedule Rates Effective April 1, 2026" PDF directly
+  (`https://hcpf.colorado.gov/sites/hcpf/files/01_CO_Fee%20Schedule_Health%20First%20Colorado_04012026%20v1.0.pdf`
+  — note: this URL 403s with a default `curl` user-agent via CloudFront
+  bot-blocking; a browser user-agent string works), converted to text
+  with `pdftotext -layout`, and found the "Family Planning - Professional
+  Component" line for CPT 99213: $77.39 (base), $82.39 (with GT/telehealth
+  modifier). This is the source for the Medicaid scenario's
+  `office_visit_em_cost` override.
+- **CPT 58300 (IUD insertion) does NOT appear anywhere in that same fee
+  schedule PDF**, despite the document covering a broad range of
+  procedure codes (confirmed by checking that other 5xxxx-range codes,
+  e.g. urology codes in the 50000s, do appear normally). It likely lives
+  in a different Colorado Medicaid billing manual (HCPF publishes
+  separate "Family Planning Benefit Expansion," "Reproductive Health
+  Care," and "Obstetrical Care" billing manuals) not yet located. Given
+  this, the Medicaid scenario's `iud_insertion_professional_fee` override
+  uses a national (not Colorado-specific) 2015 Medicaid-context estimate
+  instead: $71-$135 (midpoint $103), from Bhatt & Stevens et al.,
+  "Immediate Postpartum Long-Acting Reversible Contraception: Review of
+  Insertion and Device Reimbursement Policies," a 2022 systematic review
+  of state Medicaid postpartum-LARC reimbursement policies (PMC9198998,
+  read directly), inflation-adjusted from 2015 to `reference_dollar_year`
+  using a newly-added real 2015 CPI-Medical row in
+  `data/cpi_medical_care.csv` (446.752, same FRED-download methodology as
+  the 2014 row).
+- **A real, directly relevant Colorado Medicaid policy precedent, found
+  while researching this scenario:** effective 2020-01-01, Colorado
+  Medicaid separately reimburses Immediate Postpartum LARC (IPP-LARC)
+  devices inserted during an otherwise-DRG-bundled inpatient stay, "at the
+  fee schedule rate or the amount billed, whichever is less" — funded by
+  reducing delivery DRG weights 540/542/560 by 0.004 to offset the new
+  separate payment (source: web search of HCPF's own billing-manual
+  summaries, corroborated by the PMC9198998 review's Table 3 listing
+  Colorado as having a "device cost reimbursement separate from global
+  obstetric fee: Yes, entity authorized to bill: Hospital, mechanism:
+  Inpatient" policy). **This is exactly the structural problem this
+  project's own Denver Health MRF analysis independently identified**
+  (CPT 58300/device J-codes showing null inpatient negotiated rates,
+  meaning no separate payment exists) — Colorado Medicaid has already
+  built a real fix for it, just scoped narrowly to delivery admissions.
+  The `medicaid_illustrative` scenario sets
+  `combined_requires_separate_professional_fee = TRUE` as an explicit
+  POLICY-ANALOGY assumption (what if this same carve-out mechanism were
+  extended to bariatric-surgery DRGs), clearly labeled in the scenario's
+  own description field as not current law.
+- **The device's own GPO acquisition cost is unchanged across scenarios.**
+  Which payer eventually reimburses a claim doesn't change what the
+  hospital pays its supplier to acquire the device — that's a supply-chain
+  cost, not a reimbursement question. Only `office_visit_em_cost`,
+  `iud_insertion_professional_fee`, and the professional-fee toggle vary
+  by scenario.
+- **Result:** under this scenario, the combined arm's cost disadvantage
+  widens further, not narrows — it now pays the professional fee it
+  avoided in the base case, on top of its existing OR-time and
+  higher-expulsion-risk costs, while the standalone arm's total barely
+  moves. Run `Rscript analysis/02_scenario_analysis.R` to reproduce.
+
 ## Reused from the sibling `emb_colonoscopy` project
 
 `office_visit_em_cost`, `direct_room_cost_per_minute`,
