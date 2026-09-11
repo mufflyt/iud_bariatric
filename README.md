@@ -205,11 +205,12 @@ question can be bounded without it: the entire `expected_perforation_cost`
 applied to each arm is $38.71. That's the absolute most the combined
 arm's cost could drop under ANY same-setting-recognition mechanism, even
 in the impossible best case of 100% immediate recognition at zero
-marginal cost -- a 9.0% cut to the current base case's $430.13 gap (see
+marginal cost -- a 7.9% cut to the current base case's $490.78 gap (see
 "Two surgeons, real coordination cost," "Facility-setting professional
-fee," and "Preop consent visit for the combined arm" below for the three
-corrections that moved this gap after this section was first written),
-leaving $391.42 even then. Real mechanism, too small
+fee," "Preop consent visit for the combined arm," and "Postop results-
+discussion cost" below for the four corrections that moved this gap
+after this section was first written), leaving $452.07 even then. Real
+mechanism, too small
 to matter here regardless of the exact percentage, which is why it stays
 a documented, deliberately deferred refinement rather than a built one;
 see `iud_perforation_management_cost`'s notes and `docs/data_sources.md`,
@@ -221,14 +222,15 @@ see `iud_perforation_management_cost`'s notes and `docs/data_sources.md`,
 sweeps every cost-engine parameter that has a real, sourced low/high
 range across that range (one at a time, holding everything else at base
 case) and measures how much it moves the headline result: the incremental
-cost gap between the combined and standalone arms ($430.13 in the current
+cost gap between the combined and standalone arms ($490.78 in the current
 base case; this was $196.39 when this analysis was first built, moved to
 $335.29 after "Two surgeons, real coordination cost" below added a real
 professional fee and a scheduling-coordination cost to the combined arm,
 down to $304.73 after "Facility-setting professional fee" below corrected
-that same professional fee to a lower, facility-specific rate, then up to
+that same professional fee to a lower, facility-specific rate, up to
 $430.13 after "Preop consent visit for the combined arm" below added a
-fourth real cost -- see all three sections for why). This replaces guesswork about where
+fourth real cost, then up again to $490.78 after "Postop results-
+discussion cost" below added a fifth -- see all four sections for why). This replaces guesswork about where
 further data-hunting is worth the effort with an actual ranking.
 
 **The result reorders priorities.** The two biggest drivers by far are
@@ -273,7 +275,7 @@ ratio CI, which is adjusted for covariates this project's unadjusted
 point estimate is not. This parameter ranks third (swing $185), just
 behind the two OR-time parameters -- and, reassuringly, even at the low
 end of that wide interval (6.81% expulsion), the combined arm still costs
-more than standalone ($357 gap, smaller than the current $430 base case
+more than standalone ($417 gap, smaller than the current $491 base case
 but not reversed), so the model's directional conclusion is robust to
 this parameter's real uncertainty. `patient_time_opportunity_cost_per_visit`
 remains an open gap of the same
@@ -324,7 +326,8 @@ parameters. Mutation-tested; see `docs/testing_philosophy.md`. (The
 $116.08 professional-fee figure was itself corrected shortly afterward,
 and a further preop-visit cost was added after that -- see "Facility-
 setting professional fee" and "Preop consent visit for the combined arm"
-next for both, and the current $430.13 gap.)
+next, and "Postop results-discussion cost" after that, for all of
+them -- the current gap is $490.78.)
 
 ## Facility-setting professional fee
 
@@ -387,7 +390,9 @@ $335.29 to $304.73** (standalone unchanged at $868.63; combined fell
 from $1,203.92 to $1,173.36 -- the $67.96 professional-fee reduction
 outweighing the $37.39 supply-cost addition). Mutation-tested; see
 `docs/testing_philosophy.md`. (A further preop-visit cost was added
-after this -- see next -- so the current gap is $430.13, not $304.73.)
+after this, and a postop-discussion cost after that -- see next and
+"Postop results-discussion cost" below -- so the current gap is
+$490.78, not $304.73.)
 
 ## Preop consent visit for the combined arm
 
@@ -417,9 +422,69 @@ global-surgery period is "XXX" (the global-surgery concept doesn't apply
 to this code at all), so there is no bundling rule that would fold this
 visit into the procedure's own fee.
 
-**Net effect: the base case gap moved from $304.73 to $430.13**
-(standalone unchanged at $868.63; combined rose from $1,173.36 to
-$1,298.76). Mutation-tested; see `docs/testing_philosophy.md`.
+**Net effect at the time this was built: the base case gap moved from
+$304.73 to $430.13** (standalone unchanged at $868.63; combined rose
+from $1,173.36 to $1,298.76). Mutation-tested; see
+`docs/testing_philosophy.md`. (A postop discussion cost was added the
+same day -- see next -- so the current gap is $490.78, not $430.13.)
+
+## Postop results-discussion cost
+
+One more real gap, surfaced by the same question that produced the
+preop visit above: IUD placements do not get a formal postop office
+visit (confirmed directly against current CDC guidance -- see "IUD
+string checks" below), so nothing in the model priced the time it
+actually takes the gynecologist to discuss the procedure's results with
+the patient afterward. For the combined arm specifically, this can't
+happen at the time of placement (the patient is under anesthesia), and
+it happens as a separate phone call, not an in-person visit, since the
+patient is otherwise occupied recovering from a much larger surgery and
+no physical exam is needed for the IUD side of things.
+
+New parameters: `combined_arm_postop_discussion_minutes` = 25 (model-
+owner operational estimate) and `gynecologist_wage_per_minute` = $2.347
+(O*NET/BLS 2025 median wage for SOC 29-1218, Obstetricians and
+Gynecologists, $140.82/hour -- same discovery method as the scheduler
+wage: bls.gov blocks automated retrieval, O*NET republishes the same
+OEWS data). Priced as raw physician time, not a procedure fee, since a
+phone call with no physical exam isn't a billable E/M encounter.
+Applies only to the combined arm; standalone's single office visit
+already includes this discussion live, in the same encounter as the
+insertion itself.
+
+Checked directly rather than assumed: is this already covered by a
+global surgical fee? No -- CPT 58300's own CMS global-surgery period is
+"XXX" (no global package exists for this code at all, the same lookup
+used for the preop visit above), and separately, this call happens on a
+later calendar day than the insertion itself (the patient is in the OR,
+then recovering from the bariatric procedure, that day), so even the
+general same-day-minor-procedure bundling rule wouldn't apply. The
+bariatric surgeon's own global period, if any, covers a different
+physician's different procedure code, not the gynecologist's separate
+communication.
+
+**Net effect: the base case gap moved from $430.13 to $490.78**
+(standalone unchanged at $868.63; combined rose from $1,298.76 to
+$1,359.41). Mutation-tested; see `docs/testing_philosophy.md`.
+
+## IUD string checks
+
+Checked directly, in response to the question of whether a routine
+in-office string-check visit belongs in either arm's cost. It doesn't.
+Current CDC guidance states it plainly: **"No routine follow-up visit
+is required"** after IUD placement (Curtis KM, Nguyen AT, Tepper NK,
+Zapata LB, Snyder EM, Hatfield-Timajchy K, Kortsmit K, Cohen MA,
+Whiteman MK. "U.S. Selected Practice Recommendations for Contraceptive
+Use, 2024." *MMWR Recomm Rep* 2024;73(3):1-77), based on evidence rated
+"very limited and of poor quality" for any specific follow-up-visit
+schedule improving continuation. Clinicians are instead advised to check
+for the strings opportunistically at other routine visits, not via a
+dedicated scheduled one. This is a deliberate, evidence-based exclusion,
+not an oversight: no cost is added to either arm for a routine
+string-check visit, consistent with the observation that IUD inserts
+don't get a postop visit at all. See
+`iud_string_check_followup_not_recommended` in
+`config/model_parameters.csv`.
 
 ## Cancer-prevention estimate
 

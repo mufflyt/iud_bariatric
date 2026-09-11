@@ -197,3 +197,22 @@ boolean toggles.
   why a test targeting each toggle independently, not just the base case,
   was needed to catch this class of bug.
 - **Reverted, confirmed green:** all tests pass again.
+
+**2026-09-11 -- postop discussion cost's wage-rate lookup
+(`R/strategy_costs.R`, `compute_postop_discussion_cost()`).**
+
+Added alongside the new postop-phone-call feature (the combined arm's
+patient is under anesthesia during placement, so the gynecologist has to
+discuss results separately, by phone, since IUD insertions do not get a
+formal postop visit). Planted defect: read `surgery_scheduler_wage_per_
+minute` (the OTHER wage parameter this project uses, for a structurally
+identical purpose) instead of `gynecologist_wage_per_minute`, via a
+scripted `sed` substitution -- a realistic copy-paste mistake between
+two adjacent, near-identical wage-times-minutes cost functions.
+
+- **Red:** 2 tests failed -- the new unit test on
+  `compute_postop_discussion_cost()` directly (off by exactly $51.14,
+  the difference between the scheduler's lower wage and the
+  gynecologist's higher one, times 25 minutes) and the base-case
+  `INDEPENDENT CONFIRMATION` test on `expected_total_cost`.
+- **Reverted, confirmed green:** all tests pass again.

@@ -30,7 +30,13 @@
 #'   surgery, inflation-adjusted to `reference_dollar_year`, plus a
 #'   scheduling-coordination cost (see
 #'   `compute_scheduling_coordination_cost()`) for aligning the two
-#'   surgeons' OR time, which the standalone arm never incurs.
+#'   surgeons' OR time, plus a postop results-discussion cost (see
+#'   `compute_postop_discussion_cost()`) -- the patient is under
+#'   anesthesia during placement, so the gynecologist has to discuss the
+#'   procedure with them separately, by phone, since IUD insertions do
+#'   not get a formal postop office visit. None of this is incurred by
+#'   the standalone arm, whose single office visit already includes this
+#'   discussion live.
 #'
 #' Both arms also carry an EXPECTED replacement cost for device expulsion,
 #' since Masten et al. 2024 (J Pediatr Adolesc Gynecol) found combined
@@ -149,6 +155,36 @@ compute_scheduling_coordination_cost <- function(model_parameters, price_index_t
   coordination_minutes * wage_per_minute
 }
 
+#' Compute the combined arm's postop results-discussion cost
+#'
+#' The combined arm's device is placed while the patient is under
+#' anesthesia, so the gynecologist cannot discuss the procedure with the
+#' patient at the time of placement the way the standalone arm's single
+#' office visit does. IUD insertions do not get a formal postop office
+#' visit (confirmed directly, see
+#' `iud_string_check_followup_not_recommended`), so this conversation
+#' happens as a separate phone call after the patient's bariatric-surgery
+#' recovery, not as a billable encounter (no physical exam is needed for
+#' the IUD specifically) -- priced as raw physician time, not a
+#' procedure fee.
+#'
+#' @param model_parameters Tibble from [load_model_parameters()].
+#' @param price_index_table Tibble from [load_price_index_table()], using
+#'   the general (all-items) CPI series, since this is a wage cost, not a
+#'   medical-service price.
+#' @return Numeric scalar, in `reference_dollar_year` dollars.
+compute_postop_discussion_cost <- function(model_parameters, price_index_table) {
+  reference_year <- get_parameter_value(model_parameters, "reference_dollar_year")
+  discussion_minutes <- get_parameter_value(model_parameters, "combined_arm_postop_discussion_minutes")
+
+  row <- model_parameters |> dplyr::filter(.data$parameter == "gynecologist_wage_per_minute")
+  wage_per_minute <- adjust_for_inflation(
+    base::as.numeric(row$base_value[[1]]), row$dollar_year[[1]], reference_year, price_index_table
+  )
+
+  discussion_minutes * wage_per_minute
+}
+
 #' Compute the standalone arm's societal (patient time/travel) add-on
 #'
 #' @param model_parameters Tibble from [load_model_parameters()].
@@ -217,6 +253,7 @@ compute_standalone_strategy_cost <- function(
     disposable_supply_cost = 0,
     added_or_cost = 0,
     scheduling_coordination_cost = 0,
+    postop_discussion_cost = 0,
     expected_replacement_cost = expected_replacement_cost,
     expected_escalation_cost = expected_escalation_cost,
     expected_perforation_cost = expected_perforation_cost,
@@ -300,8 +337,11 @@ compute_combined_strategy_cost <- function(
     model_parameters, all_items_price_index_table
   )
 
+  postop_discussion_cost <- compute_postop_discussion_cost(model_parameters, all_items_price_index_table)
+
   expected_total_cost <- device_cost + professional_fee + office_visit_cost + disposable_supply_cost +
-    added_or_cost + expected_replacement_cost + expected_perforation_cost + scheduling_coordination_cost
+    added_or_cost + expected_replacement_cost + expected_perforation_cost + scheduling_coordination_cost +
+    postop_discussion_cost
 
   # No societal add-on: the patient was already coming in for the
   # bariatric surgery regardless, so this arm adds no incremental patient
@@ -314,6 +354,7 @@ compute_combined_strategy_cost <- function(
     disposable_supply_cost = disposable_supply_cost,
     added_or_cost = added_or_cost,
     scheduling_coordination_cost = scheduling_coordination_cost,
+    postop_discussion_cost = postop_discussion_cost,
     expected_replacement_cost = expected_replacement_cost,
     expected_escalation_cost = 0,
     expected_perforation_cost = expected_perforation_cost,
