@@ -145,3 +145,13 @@ problem this project's own Denver Health data independently found, just
 scoped to delivery admissions rather than bariatric surgery. The scenario
 models what happens if that same mechanism were extended to bariatric
 surgery: the combined arm's cost disadvantage gets worse, not better.
+
+Two more real hospitals' price-transparency files (NYU Langone, UCLA)
+were checked (2026-09-10) to see whether Denver Health's numbers are
+representative. They are: Denver Health's cash price for the IUD device
+is the low end of a real $837.67-$2,907.82 range across the three
+hospitals, not an outlier, which supports the model's use of GPO/340B
+acquisition cost, well below any of these charge prices, as the
+conservative base-case driver rather than an understatement. See
+`docs/data_sources.md` for the full breakdown, including why NYU's CPT
+58300 price could not be used as a second professional-fee data point.

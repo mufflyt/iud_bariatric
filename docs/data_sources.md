@@ -54,6 +54,78 @@ procedure, for context only, not used in the incremental-cost calculation:
 CMS/Medicare rate $41,963.80 (619, with MCC) / $28,839.33 (620, with CC) /
 $27,902.21 (621, without CC/MCC); commercial payers ranged $26,000-$61,414.
 
+## Cross-hospital price validation (added 2026-09-10)
+
+Denver Health is a single safety-net hospital, and a fair question is
+whether its chargemaster/cash prices and CPT 58300 fee are representative
+or an outlier. Two more real hospitals' CMS-mandated machine-readable
+files were checked directly, both discovered the same way (the
+`https://{domain}/cms-hpt.txt` auto-discovery convention), to find out.
+
+**NYU Langone Health** (`https://nyulangone.org/cms-hpt.txt` ->
+`mrf-url: https://standard-charges-prod.s3.amazonaws.com/pricing_files/133971298-1801992631_nyu-langone-tisch_standardcharges.csv`,
+file dated 2026-01-01, downloaded directly 2026-09-10, 482 MB CSV, the CMS
+"tall" per-payer-column format):
+
+| Item | Code | Gross charge | Discounted cash | Negotiated rate (n payers, min-median-max) |
+|---|---|---|---|---|
+| IUD insertion (setting: both) | CPT 58300 | $2,152.15 | $408.91 | n=291, $210.08-$4,100.00-$25,798.00 |
+| Liletta/Mirena/Kyleena 52/19.5mg | HCPCS J7297/J7298/J7296 | $15,304.34 | $2,907.82 | n=209, $153.04-$4,591.30-$15,304.34 |
+| Skyla 13.5mg | HCPCS J7301 | $12,743.39 | $2,421.24 | n=209, $127.43-$3,823.02-$12,743.39 |
+
+**Ronald Reagan UCLA Medical Center**
+(`https://www.uclahealth.org/cms-hpt.txt` ->
+`mrf-url: https://www.uclahealth.org/sites/default/files/cms-hpt/956006143_ronald-reagan-ucla-medical-center_standardcharges.json`,
+file dated 2026-01-01, last updated 2026-03-29, downloaded directly
+2026-09-10, ~500 MB JSON, CMS HPT schema v3.0.0):
+
+| Item | Code | Gross charge | Discounted cash | Negotiated rate (n payers) |
+|---|---|---|---|---|
+| IUD insertion | CPT 58300 | not present in file | not present in file | not present in file |
+| Liletta/Mirena/Kyleena 52/19.5mg | HCPCS J7297/J7298/J7296 | null | null | n=3, $845.10 / $950.37 / $950.37 |
+| Skyla 13.5mg | HCPCS J7301 | null | null | n=3, $917.35 / $1,031.61 / $1,031.61 |
+
+**What this changes and what it doesn't.** Neither file reports a hospital's
+own acquisition cost (what it pays its pharmacy/GPO/340B contract for the
+device), so neither moves `iud_device_acquisition_cost_gpo` or `_340b`,
+which remain the base-case drivers. What it does do:
+
+- **Denver Health is the low end of a real three-hospital range, not an
+  outlier.** For the same device (J7297), cash/negotiated prices ranged
+  from $837.67 (Denver Health) to $845-$950 (UCLA) to $2,907.82 (NYU
+  Langone), a range wide enough that NYU's single hospital, on its own,
+  spans a 3.5x multiple of Denver Health's price. This is direct evidence
+  for the point `iud_j7297_cash_price_nyu_langone`'s notes make in
+  `config/model_parameters.csv`: charge/cash prices carry hospital margin
+  and market-specific variation far too large to substitute for a real
+  acquisition cost, which is exactly why this model uses acquisition-cost
+  parameters instead of anchoring on any single hospital's charges.
+- **CPT 58300's price varies even more, and NYU's number cannot be used as
+  a second professional-fee data point.** NYU lists this code's `setting`
+  as `both`, meaning its charge does not distinguish inpatient from
+  outpatient billing the way Denver Health's separate professional fee
+  does; NYU's $408.91 cash price plausibly bundles a facility/OR component
+  that Denver Health's own professional-only fee does not carry. The two
+  are not comparable line items, so `iud_insertion_professional_fee`'s
+  base value and its unverified $75-$125 aggregator bound were left
+  unchanged; the NYU figure is recorded as `iud_58300_cash_price_nyu_langone`
+  for transparency, not folded into the model.
+- **UCLA's file has no CPT 58300 entry and no gross/cash price for the
+  IUD devices at all**, only 3 populated per-payer negotiated-dollar
+  entries per device code. This is itself informative: hospital
+  price-transparency files vary enormously in completeness even though
+  all are subject to the identical federal 45 CFR 180.50 requirement, a
+  limitation worth naming rather than glossing over.
+- Two other large systems' `cms-hpt.txt` files were checked and could not
+  be used: Cleveland Clinic's endpoint returned an HTML page rather than a
+  valid discovery file, and Mayo Clinic's and Cedars-Sinai's both returned
+  "Access Denied."
+
+See `iud_j7297_cash_price_nyu_langone`, `iud_j7297_negotiated_range_ucla`,
+and `iud_58300_cash_price_nyu_langone` in `config/model_parameters.csv`
+(all `category = reference_only`, evidence tier A, not consumed by the
+cost engine) for the exact figures and full source strings.
+
 ## Secondary-source numbers needing re-verification
 
 - **Non-340B GPO acquisition cost ($537-$600): verification ATTEMPTED and
