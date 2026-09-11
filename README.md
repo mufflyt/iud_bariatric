@@ -91,12 +91,16 @@ See `docs/data_sources.md` for the full citation trail.
 
 ## Repository layout
 
-- `config/model_parameters.csv` -- every model input, one row per parameter,
-  with `source`, `evidence_tier` (A = direct/primary, B = adjacent primary
-  source, C = general-population literature, D = placeholder), and
-  `provisional` columns.
-- `R/` -- parameter loading/validation, the two-strategy cost engine, and
-  (as they're added) sensitivity-analysis and plotting helpers.
+- `config/model_parameters.csv` -- every cost-model input, one row per
+  parameter, with `source`, `evidence_tier` (A = direct/primary, B =
+  adjacent primary source, C = general-population literature, D =
+  placeholder), and `provisional` columns.
+- `config/cancer_prevention_parameters.csv` -- inputs for the separate
+  cancer-prevention estimate (see "Cancer-prevention estimate" below),
+  same column schema.
+- `R/` -- parameter loading/validation, the two-strategy cost engine, the
+  cancer-prevention estimate, and (as they're added) sensitivity-analysis
+  and plotting helpers.
 - `analysis/` -- numbered driver scripts that run the model and save tables.
 - `tests/testthat/` -- unit and regression tests; run via `Rscript tests/testthat.R`.
 - `docs/data_sources.md` -- the full evidence trail for every parameter,
@@ -168,3 +172,45 @@ used to change the model's acquisition-cost parameters (a payer's
 reimbursement doesn't change what a hospital pays its supplier), but as a
 fourth and fifth independent source agreeing on the same band, they make
 NYU's much higher charge price look like the outlier, not the norm.
+
+## Cancer-prevention estimate
+
+A separate module (`R/cancer_prevention.R`,
+`config/cancer_prevention_parameters.csv`,
+`analysis/03_cancer_prevention.R`) estimates how many endometrial cancer
+cases an LNG-IUD prevents in bariatric-surgery patients. This is
+deliberately NOT part of the cost-minimization model above: that model
+assumes the device is equally effective once placed regardless of arm, so
+it has no cancer-outcome parameter to begin with. This answers a
+different question the sibling model doesn't address.
+
+The central modeling problem: the one existing cost-effectiveness study
+of this exact intervention (Dottino et al. 2016, *Obstet Gynecol*) was
+built for a 50-year-old obese woman with no other treatment, not a
+reproductive-age patient about to lose a large amount of weight from
+bariatric surgery for reasons that have nothing to do with the IUD.
+Applying Dottino's baseline risk directly would credit the IUD for
+protection that surgery itself already provides. This module corrects
+for that by layering two real, separately-measured effects
+multiplicatively: bariatric surgery's own independent risk reduction
+(Schauer et al. 2019, *Ann Surg*, a matched cohort of 22,198 actual
+bariatric-surgery patients vs. 66,427 non-surgical severely-obese
+controls, HR 0.50, 95% CI 0.37-0.67) and the IUD's own additional
+reduction on top of that (Soini et al. 2014, *Obstet Gynecol*, a
+93,843-woman Finnish national cohort, standardized incidence ratio 0.50,
+95% CI 0.35-0.70, independently verified directly from the primary
+source rather than taken secondhand from Dottino's table, and
+corroborated by a 2021 update, Bernard et al., *Gynecol Oncol*, using the
+same figure).
+
+At base-case values: per 1,000 bariatric-surgery patients who receive an
+IUD, an estimated 7.5 endometrial cancer cases are prevented (BMI 40+
+baseline, number needed to treat approximately 133) or 4.75 cases (BMI
+30+ baseline, NNT approximately 211). Two limitations are flagged
+explicitly rather than glossed over: treating the two effects as
+independent and multiplicative is a standard but unverified simplifying
+assumption (no study has measured both together), and the estimate
+applies the IUD's incidence ratio to a LIFETIME baseline risk rather than
+a duration-corrected one, making it a likely-optimistic upper bound, not
+a final answer. See `docs/data_sources.md`, "Cancer-prevention estimate,"
+for the full citation trail and reasoning.

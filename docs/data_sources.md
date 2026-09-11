@@ -525,6 +525,115 @@ scenario's policy-analogy assumption is grounded in common, not
 exceptional, state Medicaid practice: the mechanism exists almost
 everywhere, just not yet pointed at this specific admission type.
 
+## Cancer-prevention estimate (added 2026-09-10)
+
+A separate module, `R/cancer_prevention.R` /
+`config/cancer_prevention_parameters.csv` / `analysis/03_cancer_prevention.R`,
+estimates the endometrial cancer cases an LNG-IUD prevents in bariatric-
+surgery patients. This is NOT part of the cost-minimization model: that
+model assumes the device is equally effective once placed regardless of
+arm, so a cancer-outcome parameter has no place in it. This module answers
+a genuinely different question ("how much benefit does placing the device
+actually buy"), asked directly by the user rather than derived from the
+cost-minimization work.
+
+**The core problem this module has to solve, not sidestep:** the one
+existing cost-effectiveness model for this exact intervention (Dottino et
+al. 2016, already read in full for this project's literature review) was
+built for a 50-year-old obese woman with no other intervention -- not a
+reproductive-age bariatric-surgery patient who is about to lose a large
+amount of weight for reasons that have nothing to do with the IUD.
+Applying Dottino's obesity-only baseline risk directly to this project's
+population would overstate the IUD's benefit, because it would credit the
+IUD for risk reduction that bariatric surgery itself already provides.
+
+**Real numbers used, each independently verified:**
+
+- **Baseline lifetime endometrial cancer risk, obese, no intervention:**
+  Dottino JA, Hasselblad V, Secord AA, Myers ER, Chino J, Havrilesky LJ,
+  "Levonorgestrel Intrauterine Device as an Endometrial Cancer Prevention
+  Strategy in Obese Women: A Cost-Effectiveness Analysis," *Obstet Gynecol*
+  2016;128(4):747-753 (PDF read directly). Their Markov model (SEER
+  age-specific incidence x published obesity hazard ratios) outputs a 3%
+  lifetime risk for a 50-year-old with BMI >=40, 1.9% for BMI >=30. These
+  are the two `endometrial_cancer_lifetime_risk_usual_care_bmi*` rows.
+  Age/cohort mismatch to this project's population is explicit in both
+  rows' notes and is why they're tier C here despite being a solid,
+  directly-read modeled estimate in their own context.
+- **Bariatric surgery's own, independent risk reduction:** Schauer DP,
+  Feigelson HS, Koebnick C, Caan B, Weinmann S, Leonard AC, Powers JD,
+  Yenumula PR, Arterburn DE, "Bariatric Surgery and the Risk of Cancer in a
+  Large Multisite Cohort," *Ann Surg* 2019;269(1):95-101, doi:10.1097/
+  SLA.0000000000002525. Directly verified via the open-access PMC full
+  text (PMC6201282), 2026-09-10: a 5-site, matched retrospective cohort
+  (22,198 bariatric-surgery patients vs. 66,427 non-surgical patients with
+  severe obesity, matched on sex/age/site/BMI/comorbidity index, surgery
+  2005-2012, up to 10 years follow-up) found HR 0.50 (95% CI 0.37-0.67,
+  P<0.001) for endometrial cancer specifically. This is the single most
+  population-relevant number in this module: it directly compares
+  bariatric-surgery patients to non-surgical severely-obese controls, the
+  real counterfactual this project's patients face, rather than an
+  obesity-in-general comparison.
+- **The IUD's own additional risk reduction:** Soini T, Hurskainen R,
+  Grenman S, Maenpaa J, Paavonen J, Pukkala E, "Cancer risk in women using
+  the levonorgestrel-releasing intrauterine system in Finland," *Obstet
+  Gynecol* 2014;124(2 pt 1):292-299, doi:10.1097/AOG.0000000000000356.
+  Directly verified via the PubMed/Europe PMC abstract, 2026-09-10 (this
+  is the same study Dottino's Table 1 draws its risk-reduction figure
+  from, now independently re-confirmed from the primary source rather
+  than taken secondhand): a nationwide Finnish cohort of 93,843 LNG-IUS
+  users (menorrhagia indication, ages 30-49, 1994-2007), 855,324
+  women-years of follow-up, standardized incidence ratio for endometrial
+  adenocarcinoma 0.50 (95% CI 0.35-0.70; 34 observed vs. 68 expected
+  cases). This is `iud_endometrial_cancer_incidence_ratio`.
+- **Corroboration, not just one source:** the same 0.50 figure is the
+  risk-reduction assumption independently used by Bernard L, Kwon JS,
+  Simpson AN, Ferguson SE, Sinasac S, Pina A, Reade CJ, "The levonorgestrel
+  intrauterine system for prevention of endometrial cancer in women with
+  obesity: A cost-effectiveness study," *Gynecol Oncol* 2021;161:367-373
+  (abstract directly verified 2026-09-10), a 2021 update to this same
+  modeling literature that also tested longer device durations (5, 7, 10,
+  and 14 years, the last two via one replacement) using the identical
+  Soini-derived risk reduction. Two independent modeling groups relying on
+  the same primary evidence is real corroboration of that evidence's
+  standing in the field, though it does not create a second independent
+  measurement of the effect itself.
+
+**How the module combines them:** `compute_cancer_prevention_summary()`
+applies the two hazard/incidence ratios multiplicatively --
+`lifetime_risk x surgery_HR x iud_ratio` -- to get the risk under both
+interventions, and reports the IUD's own marginal contribution
+(`lifetime_risk x surgery_HR x (1 - iud_ratio)`) as the absolute risk
+reduction attributable to the device specifically, on top of surgery. At
+base-case values, per 1,000 bariatric-surgery patients who receive an
+IUD: 7.5 expected endometrial cancer cases prevented (BMI >=40 baseline,
+NNT approximately 133) or 4.75 cases (BMI >=30 baseline, NNT approximately
+211). Run `Rscript analysis/03_cancer_prevention.R` to reproduce.
+
+**Two limitations flagged explicitly, not glossed over:**
+
+1. **Multiplicative independence is an assumption, not a finding.** No
+   study has measured bariatric surgery and LNG-IUD use together in one
+   cohort. Treating their effects as independent and multiplicative is
+   the standard simplifying approach for combining two hazard ratios from
+   separate literatures, but it is an assumption this module makes, not
+   something Schauer or Soini's data can confirm or refute.
+2. **This is a lifetime-risk calculation, not a duration-corrected one.**
+   The incidence ratio is applied to a LIFETIME baseline risk (Dottino's
+   age-50-to-100 Markov horizon), which implicitly assumes the IUD's
+   protective effect operates across the woman's entire remaining
+   lifetime. In reality, Dottino's own base case limits the protective
+   effect to the 5 years the device is in place (an explicitly-stated
+   assumption, not itself an empirical finding), and this project's
+   device (Liletta) is labeled for 8 years, well within Soini's own
+   cohort's mean ~9.1-year follow-up but still far short of a full
+   lifetime. `iud_protective_duration_years` records both figures for
+   context but is NOT yet consumed by the calculation. This means the
+   module's headline numbers should be read as a likely-optimistic upper
+   bound, not as a duration-corrected estimate. A future version would
+   need an annual (rather than lifetime) incidence model to fix this
+   properly, which is a materially larger undertaking than this v1 scope.
+
 ## Reused from the sibling `emb_colonoscopy` project
 
 `office_visit_em_cost`, `direct_room_cost_per_minute`,

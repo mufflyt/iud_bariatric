@@ -75,3 +75,30 @@ substitution.
   as the CPT 99213 mutation test above, since this fee flows through the
   same expulsion/escalation-cost formulas).
 - **Reverted, confirmed green:** all tests pass again.
+
+**2026-09-10 -- cancer-prevention module's absolute-risk-reduction formula
+(`R/cancer_prevention.R`, `compute_iud_absolute_risk_reduction()`).**
+
+Added alongside the new `R/cancer_prevention.R` module. Planted defect:
+changed `post_surgery_baseline_risk * (1 - iud_incidence_ratio)` to
+`post_surgery_baseline_risk * iud_incidence_ratio` (forgetting to convert
+the incidence ratio to a risk *reduction*) via a scripted `sed`
+substitution.
+
+- **First attempt found a real blind spot, not a passing test:** the
+  initial unit test for this function used `iud_incidence_ratio = 0.50`,
+  this project's actual base-case value. 0.50 is a fixed point of
+  `x -> 1 - x`, so the buggy and correct formulas produce IDENTICAL
+  output at that one value (`0.5 == 1 - 0.5`) -- the mutation was
+  invisible, and every downstream test that also happened to use the
+  0.50 base case (the full `compute_cancer_prevention_summary()` checks,
+  the independent-confirmation test) shared the same blind spot. This is
+  exactly the failure mode mutation testing exists to catch: a suite that
+  looks thorough but tests only at a value where a real bug is
+  numerically silent.
+- **Fixed the test, not the code:** rewrote the unit test to use
+  deliberately asymmetric inputs (`0.02, 0.3`, expecting `0.02 * 0.7`),
+  which cannot coincide under the buggy formula.
+- **Red (second attempt):** the corrected unit test failed as expected
+  (`0.006` vs `0.014`).
+- **Reverted, confirmed green:** all tests pass again.
