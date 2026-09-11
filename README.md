@@ -173,6 +173,32 @@ reimbursement doesn't change what a hospital pays its supplier), but as a
 fourth and fifth independent source agreeing on the same band, they make
 NYU's much higher charge price look like the outlier, not the norm.
 
+## Perforation cost, now wired into the cost engine
+
+Both arms now carry an expected perforation-management cost, applied
+identically to standalone and combined: `iud_perforation_risk_baseline`
+(1.4 per 1,000 LNG-IUD insertions, Heinemann et al. 2015, EURAS-IUD, a
+61,448-woman prospective cohort, directly verified) times a
+HCUPnet-derived retrieval-episode cost (via Dottino et al. 2016's Table
+2, inflation-adjusted from 2015 dollars). Previously this risk sat in
+`config/model_parameters.csv` completely unused. Since the added cost is
+identical for both arms, it raises both strategies' totals by the same
+amount and does not change the incremental gap between them.
+
+This was prompted by a real question worth checking rather than assuming:
+if a perforation happens during a combined (already-anesthetized,
+already-open) bariatric-surgery insertion, could it be recognized and
+managed in the same operative setting, avoiding a whole separate
+retrieval surgery? The mechanism is real but narrower than it first
+sounds: EURAS-IUD found perforation is recognized at the time of
+insertion in only a minority of cases (most present later via delayed
+diagnosis), and bariatric surgery itself operates on the stomach, not the
+pelvis, so being in the OR doesn't guarantee anyone is looking at the
+uterus. Both arms use the same full retrieval cost for now; giving the
+combined arm a partial break for the immediately-recognized subset is a
+deliberately deferred refinement, documented in
+`iud_perforation_management_cost`'s notes, not built yet.
+
 ## Cancer-prevention estimate
 
 A separate module (`R/cancer_prevention.R`,

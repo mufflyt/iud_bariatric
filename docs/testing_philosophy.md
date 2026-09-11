@@ -102,3 +102,20 @@ substitution.
 - **Red (second attempt):** the corrected unit test failed as expected
   (`0.006` vs `0.014`).
 - **Reverted, confirmed green:** all tests pass again.
+
+**2026-09-10 -- perforation cost wired into the cost engine
+(`R/strategy_costs.R`, `compute_expected_perforation_cost()`).**
+
+Added when `iud_perforation_risk_baseline` (previously a documented but
+completely unused reference row) got a real cost consequence for the
+first time, applied identically to both arms. Planted defect: dropped the
+probability weighting entirely, returning the raw inflation-adjusted
+management cost regardless of perforation probability, via a scripted
+`sed` substitution.
+
+- **Red:** 5 tests failed -- the new unit test on
+  `compute_expected_perforation_cost()` directly (off by exactly the
+  un-weighted cost, approximately $27,614), both `INDEPENDENT
+  CONFIRMATION` tests (base case and Medicaid scenario), and the two
+  tests asserting `expected_total_cost` sums correctly.
+- **Reverted, confirmed green:** all tests pass again.

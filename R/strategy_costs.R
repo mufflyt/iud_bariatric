@@ -26,6 +26,17 @@
 #' + reinsertion fee), regardless of which arm's device expelled, since by
 #' the time expulsion is discovered the patient is no longer in the OR.
 #'
+#' Both arms also carry an EXPECTED perforation-management cost (Heinemann
+#' et al. 2015, EURAS-IUD, 1.4 perforations per 1,000 LNG-IUD insertions;
+#' HCUPnet-derived retrieval-episode cost via Dottino et al. 2016's Table
+#' 2), applied identically to both arms -- no differential is modeled for
+#' insertion setting, so this does not yet capture the possibility that a
+#' perforation recognized at the time of a concurrent bariatric-surgery
+#' insertion could be managed in the same operative setting rather than a
+#' separate one (see `iud_perforation_management_cost`'s notes in
+#' `config/model_parameters.csv` for why that refinement is deferred, not
+#' omitted by oversight).
+#'
 #' Both arms also report a SOCIETAL add-on (patient time/travel
 #' opportunity cost, Ray et al. 2015) alongside the healthcare-sector
 #' total, not folded into it -- the standalone arm's dedicated office
@@ -45,6 +56,33 @@ compute_expected_replacement_cost <- function(model_parameters, expulsion_probab
   office_visit_cost <- get_parameter_value(model_parameters, "office_visit_em_cost")
 
   expulsion_probability * (device_cost + professional_fee + office_visit_cost)
+}
+
+#' Compute the expected cost of managing a perforated device
+#'
+#' Applied identically to both arms: no differential is modeled for
+#' insertion setting or anesthesia (see `iud_perforation_risk_baseline`'s
+#' notes in `config/model_parameters.csv` for why), and the same
+#' HCUPnet-derived retrieval-episode cost is used regardless of arm (see
+#' `iud_perforation_management_cost`'s notes for a deferred refinement:
+#' EURAS-IUD found perforation recognized at insertion in only a minority
+#' of cases, which could in principle let the combined arm avoid a full
+#' separate episode for that subset -- not modeled here).
+#'
+#' @param model_parameters Tibble from [load_model_parameters()].
+#' @param price_index_table Tibble from [load_price_index_table()].
+#' @return Numeric scalar: perforation probability * inflation-adjusted
+#'   management cost.
+compute_expected_perforation_cost <- function(model_parameters, price_index_table) {
+  reference_year <- get_parameter_value(model_parameters, "reference_dollar_year")
+  perforation_probability <- get_parameter_value(model_parameters, "iud_perforation_risk_baseline")
+
+  row <- model_parameters |> dplyr::filter(.data$parameter == "iud_perforation_management_cost")
+  management_cost <- adjust_for_inflation(
+    base::as.numeric(row$base_value[[1]]), row$dollar_year[[1]], reference_year, price_index_table
+  )
+
+  perforation_probability * management_cost
 }
 
 #' Compute the inflation-adjusted incremental OR/anesthesia cost for the
@@ -123,8 +161,10 @@ compute_standalone_strategy_cost <- function(
     model_parameters, price_index_table
   )
 
+  expected_perforation_cost <- compute_expected_perforation_cost(model_parameters, price_index_table)
+
   expected_total_cost <- device_cost + professional_fee + office_visit_cost +
-    expected_replacement_cost + expected_escalation_cost
+    expected_replacement_cost + expected_escalation_cost + expected_perforation_cost
 
   societal_addon <- compute_patient_time_addon(model_parameters, all_items_price_index_table)
 
@@ -136,6 +176,7 @@ compute_standalone_strategy_cost <- function(
     added_or_cost = 0,
     expected_replacement_cost = expected_replacement_cost,
     expected_escalation_cost = expected_escalation_cost,
+    expected_perforation_cost = expected_perforation_cost,
     expected_total_cost = expected_total_cost,
     societal_addon = societal_addon,
     societal_total_cost = expected_total_cost + societal_addon
@@ -174,8 +215,10 @@ compute_combined_strategy_cost <- function(
     model_parameters, "iud_expulsion_probability_combined"
   )
 
+  expected_perforation_cost <- compute_expected_perforation_cost(model_parameters, price_index_table)
+
   expected_total_cost <- device_cost + professional_fee + added_or_cost +
-    expected_replacement_cost
+    expected_replacement_cost + expected_perforation_cost
 
   # No societal add-on: the patient was already coming in for the
   # bariatric surgery regardless, so this arm adds no incremental patient
@@ -188,6 +231,7 @@ compute_combined_strategy_cost <- function(
     added_or_cost = added_or_cost,
     expected_replacement_cost = expected_replacement_cost,
     expected_escalation_cost = 0,
+    expected_perforation_cost = expected_perforation_cost,
     expected_total_cost = expected_total_cost,
     societal_addon = 0,
     societal_total_cost = expected_total_cost

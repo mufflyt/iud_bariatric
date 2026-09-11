@@ -11,11 +11,13 @@ test_that("compute_standalone_strategy_cost sums device + professional fee + off
   expect_equal(standalone_cost$office_visit_cost, 88.76)
   expect_equal(standalone_cost$expected_replacement_cost, 0.056 * (568.50 + 116.08 + 88.76))
   expect_gt(standalone_cost$expected_escalation_cost, 0)
+  expect_gt(standalone_cost$expected_perforation_cost, 0)
   expect_equal(
     standalone_cost$expected_total_cost,
     568.50 + 116.08 + 88.76 +
       0.056 * (568.50 + 116.08 + 88.76) +
-      standalone_cost$expected_escalation_cost
+      standalone_cost$expected_escalation_cost +
+      standalone_cost$expected_perforation_cost
   )
 })
 
@@ -31,9 +33,11 @@ test_that("compute_combined_strategy_cost excludes the professional fee when the
   expect_equal(combined_cost$office_visit_cost, 0)
   expect_gt(combined_cost$added_or_cost, 10 * (20.90 + 3.42)) # inflation-adjusted, so strictly bigger than nominal 2014 dollars
   expect_equal(combined_cost$expected_replacement_cost, 0.163 * (568.50 + 116.08 + 88.76))
+  expect_gt(combined_cost$expected_perforation_cost, 0)
   expect_equal(
     combined_cost$expected_total_cost,
-    568.50 + combined_cost$added_or_cost + 0.163 * (568.50 + 116.08 + 88.76)
+    568.50 + combined_cost$added_or_cost + 0.163 * (568.50 + 116.08 + 88.76) +
+      combined_cost$expected_perforation_cost
   )
 })
 
@@ -50,6 +54,31 @@ test_that("compute_combined_strategy_cost includes the professional fee when the
   )
 
   expect_equal(combined_cost$professional_fee, 116.08)
+})
+
+test_that("compute_expected_perforation_cost is perforation probability times inflation-adjusted management cost", {
+  model_parameters <- test_model_parameters()
+  price_index_table <- test_price_index_table()
+  reference_year <- get_parameter_value(model_parameters, "reference_dollar_year")
+
+  expected <- 0.0014 * adjust_for_inflation(20805.84, 2015, reference_year, price_index_table)
+
+  expect_equal(compute_expected_perforation_cost(model_parameters, price_index_table), expected)
+})
+
+test_that("both arms carry the identical expected perforation cost, since no setting differential is modeled", {
+  # Directly encodes the current, deliberate modeling decision: perforation
+  # risk and its management cost do not vary by insertion setting (see
+  # iud_perforation_risk_baseline's notes). If a future version adds a
+  # setting-based differential, this test should change along with it,
+  # not silently start failing.
+  model_parameters <- test_model_parameters()
+  price_index_table <- test_price_index_table()
+  all_items_price_index_table <- test_all_items_price_index_table()
+  standalone_cost <- compute_standalone_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
+  combined_cost <- compute_combined_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
+
+  expect_equal(standalone_cost$expected_perforation_cost, combined_cost$expected_perforation_cost)
 })
 
 test_that("combined arm's higher expulsion rate produces a higher expected replacement cost", {
@@ -113,12 +142,16 @@ test_that("INDEPENDENT CONFIRMATION: base-case incremental cost matches a from-s
   failure_probability <- get_parameter_value(model_parameters, "standalone_office_failure_probability")
   patient_time_cost <- adjust_for_inflation(43, 2010, reference_year, all_items_price_index_table)
   replacement_encounter_cost <- device + professional_fee + office_visit
+  perforation_probability <- get_parameter_value(model_parameters, "iud_perforation_risk_baseline")
+  perforation_cost <- perforation_probability * adjust_for_inflation(20805.84, 2015, reference_year, price_index_table)
 
   expected_standalone <- device + professional_fee + office_visit +
     expulsion_standalone * replacement_encounter_cost +
-    failure_probability * added_or_cost
+    failure_probability * added_or_cost +
+    perforation_cost
   expected_combined <- device + added_or_cost +
-    expulsion_combined * replacement_encounter_cost
+    expulsion_combined * replacement_encounter_cost +
+    perforation_cost
 
   strategy_costs <- compute_strategy_costs(model_parameters, price_index_table, all_items_price_index_table)
 

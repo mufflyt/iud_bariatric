@@ -525,6 +525,76 @@ scenario's policy-analogy assumption is grounded in common, not
 exceptional, state Medicaid practice: the mechanism exists almost
 everywhere, just not yet pointed at this specific admission type.
 
+## Perforation cost wired into the cost engine (added 2026-09-10)
+
+`iud_perforation_risk_baseline` existed in `config/model_parameters.csv`
+from an earlier session but was explicitly documented as "NOT used to
+differentiate the two strategies" and, in fact, was not used anywhere in
+the cost engine at all -- a real gap, not just an undifferentiated one.
+This closes it, prompted by the user asking what else could strengthen
+the concurrent-insertion evidence base and specifically proposing that a
+perforation recognized during a combined (already-anesthetized) insertion
+might be manageable in the same operative setting, avoiding a whole
+separate retrieval surgery.
+
+**Checking the mechanism before modeling it:** Heinemann K, Reed S,
+Moehner S, Minh TD, "Risk of uterine perforation with levonorgestrel-
+releasing and copper intrauterine devices in the European Active
+Surveillance Study on Intrauterine Devices (EURAS-IUD)," *Contraception*
+2015;91(4):274-279, doi:10.1016/j.contraception.2015.01.007 (PMID
+25601352; directly verified via the PubMed/Europe PMC abstract,
+2026-09-10; this is the same study Dottino et al. 2016's Table 1 cites
+for this figure). A prospective, multinational cohort of 61,448 women
+(six European countries, 2006-2013, over 68,000 women-years) found 61
+uterine perforations among LNG-IUS users, 1.4 per 1,000 insertions (95%
+CI 1.1-1.8). A related finding (surfaced via a separate targeted search,
+not yet independently verified against this same primary source or its
+5-year extension study) reports that perforation is suspected or
+discovered at the time of insertion in only a minority of cases, with
+most presenting later via delayed diagnosis. Two things follow from this:
+first, the user's proposed mechanism (same-setting recognition and
+management) is real and documented in the general IUD-perforation
+literature (case reports describe concurrent laparoscopic retrieval when
+perforation is found during another abdominal/pelvic procedure), but it
+would only apply to the minority of perforations recognized immediately,
+not perforation risk broadly. Second, bariatric surgery operates on the
+stomach/upper abdomen, not the pelvis, so simply being in the OR already
+does not create pelvis visualization the way, for example, a concurrent
+pelvic procedure would. Given this, the mechanism was not built into the
+cost engine yet -- it is real but narrower and less certain than initially
+proposed, and quantifying "how much cost break does the combined arm get
+for the ~immediately-recognized subset" would require a same-setting-
+specific cost estimate this project does not have, not just the timing
+split. This is recorded as a deliberately deferred refinement, not a
+rejected idea, in `iud_perforation_management_cost`'s notes.
+
+**What was built instead, as the higher-value first step:** both arms now
+carry the SAME expected perforation-management cost, using the real
+EURAS-IUD probability above and a real management-cost estimate: Dottino
+JA, Hasselblad V, Secord AA, Myers ER, Chino J, Havrilesky LJ,
+"Levonorgestrel Intrauterine Device as an Endometrial Cancer Prevention
+Strategy in Obese Women: A Cost-Effectiveness Analysis," *Obstet Gynecol*
+2016;128(4):747-753, Table 2 (PDF read directly; already used elsewhere
+in this project for the cancer-prevention module). Dottino's Table 2
+reports a perforation-management cost sourced from HCUPnet (Healthcare
+Cost and Utilization Project), ICD-9 code 998.2 "accidental perforation
+during procedure," accessed by Dottino in January 2016, in 2015 dollars:
+mean $20,805.84, median $14,822.49. This project uses the MEAN as
+`iud_perforation_management_cost`'s base value, since it feeds an
+expected-value (probability x cost) calculation where the mean, not the
+median, is the correct statistic for a right-skewed cost distribution.
+This is a secondary citation (via Dottino's table), not independently
+re-queried from HCUPnet directly for this project, and is recorded as
+such (`evidence_tier = B`, `provisional = TRUE`).
+
+**Effect on the model's results:** because the added cost
+($38.71 in `reference_dollar_year` dollars, both arms) is identical
+across strategies, it raises both arms' totals by the same amount and
+does NOT change the incremental cost gap between standalone and
+combined -- the base case still shows the same $196 combined-arm cost
+disadvantage as before this change. Run `Rscript analysis/01_base_case.R`
+to reproduce. Mutation-tested: see `docs/testing_philosophy.md`.
+
 ## Cancer-prevention estimate (added 2026-09-10)
 
 A separate module, `R/cancer_prevention.R` /

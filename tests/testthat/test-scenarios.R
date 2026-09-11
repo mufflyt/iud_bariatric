@@ -95,10 +95,13 @@ test_that("INDEPENDENT CONFIRMATION: medicaid_illustrative standalone cost match
   anesthesia_per_min <- adjust_for_inflation(3.42, 2014, reference_year, price_index_table)
   added_or_cost <- minutes * (room_per_min + anesthesia_per_min)
   replacement_encounter_cost <- device + medicaid_professional_fee + medicaid_office_visit
+  perforation_probability <- get_parameter_value(model_parameters, "iud_perforation_risk_baseline")
+  perforation_cost <- perforation_probability * adjust_for_inflation(20805.84, 2015, reference_year, price_index_table)
 
   expected_standalone <- device + medicaid_professional_fee + medicaid_office_visit +
     expulsion_standalone * replacement_encounter_cost +
-    failure_probability * added_or_cost
+    failure_probability * added_or_cost +
+    perforation_cost
 
   scenario_results <- run_scenario_analysis(model_parameters, price_index_table, all_items_price_index_table)
   actual_standalone <- scenario_results[
