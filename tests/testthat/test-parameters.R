@@ -30,7 +30,7 @@ test_that("get_parameter_raw_value reads the structural boolean toggle", {
   model_parameters <- test_model_parameters()
   expect_equal(
     get_parameter_raw_value(model_parameters, "combined_requires_separate_professional_fee"),
-    "FALSE"
+    "TRUE"
   )
 })
 

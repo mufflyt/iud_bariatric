@@ -45,11 +45,15 @@ test_that("medicaid_illustrative scenario uses the real Colorado CPT 58300 rate"
   expect_equal(scenario_definitions$medicaid_illustrative$overrides$iud_insertion_professional_fee, 58.65)
 })
 
-test_that("medicaid_illustrative scenario turns on the combined arm's separate professional fee", {
-  # This is the policy-analogy assumption (extending Colorado's real
-  # delivery-DRG LARC carve-out to a bariatric-surgery DRG) -- it should
-  # make the combined arm pay iud_insertion_professional_fee, unlike the
-  # base case where that toggle defaults to FALSE.
+test_that("medicaid_illustrative and base_case combined arms both pay a separate professional fee, at different rates", {
+  # combined_requires_separate_professional_fee now defaults to TRUE in
+  # the base case too (2026-09-10: the gynecologist, not the bariatric
+  # surgeon, places the device), so the medicaid_illustrative scenario's
+  # own override of this same toggle to TRUE is now redundant with the
+  # base case rather than the thing that turns the fee on. What still
+  # meaningfully differs between the two scenarios is the DOLLAR AMOUNT of
+  # that fee: Colorado's real Medicaid CPT 58300 rate ($58.65) vs. the
+  # base case's self-pay-chargemaster-derived rate ($116.08).
   model_parameters <- test_model_parameters()
   price_index_table <- test_price_index_table()
   all_items_price_index_table <- test_all_items_price_index_table()
@@ -62,9 +66,10 @@ test_that("medicaid_illustrative scenario turns on the combined arm's separate p
     scenario_results$scenario == "base_case" & scenario_results$strategy == "combined",
   ]
 
-  expect_equal(medicaid_combined$professional_fee, medicaid_combined$professional_fee[[1]])
   expect_gt(medicaid_combined$professional_fee, 0)
-  expect_equal(base_combined$professional_fee, 0)
+  expect_gt(base_combined$professional_fee, 0)
+  expect_equal(medicaid_combined$professional_fee, 58.65)
+  expect_false(medicaid_combined$professional_fee == base_combined$professional_fee)
 })
 
 test_that("run_scenario_analysis returns 2 scenarios x 2 strategies = 4 rows", {

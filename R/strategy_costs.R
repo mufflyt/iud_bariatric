@@ -10,11 +10,16 @@
 #'   separate insertion professional fee (CPT 58300), as its own encounter.
 #'   Carries an expected escalation cost if the office attempt fails
 #'   outright (Saito-Tom et al. 2015).
-#' - `combined`: IUD device only, plus (if
-#'   `combined_requires_separate_professional_fee` is TRUE) the same
-#'   insertion professional fee, plus incremental operating-room and
-#'   anesthesia minutes at the time of the already-scheduled bariatric
-#'   surgery, inflation-adjusted to `reference_dollar_year`.
+#' - `combined`: IUD device, plus (if
+#'   `combined_requires_separate_professional_fee` is TRUE, the default:
+#'   the gynecologist places the device, not the bariatric surgeon,
+#'   confirmed by the model owner 2026-09-10) the same insertion
+#'   professional fee, plus incremental operating-room and anesthesia
+#'   minutes at the time of the already-scheduled bariatric surgery,
+#'   inflation-adjusted to `reference_dollar_year`, plus a
+#'   scheduling-coordination cost (see `compute_scheduling_coordination_cost()`)
+#'   for aligning the two surgeons' OR time, which the standalone arm
+#'   never incurs.
 #'
 #' Both arms also carry an EXPECTED replacement cost for device expulsion,
 #' since Masten et al. 2024 (J Pediatr Adolesc Gynecol) found combined
@@ -108,6 +113,31 @@ compute_added_or_cost <- function(model_parameters, price_index_table) {
   added_minutes * (room_cost_per_minute + anesthesia_cost_per_minute)
 }
 
+#' Compute the combined arm's scheduling-coordination cost
+#'
+#' The gynecologist places the IUD, not the bariatric surgeon (confirmed
+#' by the model owner, 2026-09-10), so combining the two procedures
+#' requires two different surgeons' OR time to be aligned -- a real
+#' administrative cost the standalone arm never incurs, since it is a
+#' single physician's own routine office visit.
+#'
+#' @param model_parameters Tibble from [load_model_parameters()].
+#' @param price_index_table Tibble from [load_price_index_table()], using
+#'   the general (all-items) CPI series, since this is a wage cost, not a
+#'   medical-service price.
+#' @return Numeric scalar, in `reference_dollar_year` dollars.
+compute_scheduling_coordination_cost <- function(model_parameters, price_index_table) {
+  reference_year <- get_parameter_value(model_parameters, "reference_dollar_year")
+  coordination_minutes <- get_parameter_value(model_parameters, "combined_arm_scheduling_coordination_minutes")
+
+  row <- model_parameters |> dplyr::filter(.data$parameter == "surgery_scheduler_wage_per_minute")
+  wage_per_minute <- adjust_for_inflation(
+    base::as.numeric(row$base_value[[1]]), row$dollar_year[[1]], reference_year, price_index_table
+  )
+
+  coordination_minutes * wage_per_minute
+}
+
 #' Compute the standalone arm's societal (patient time/travel) add-on
 #'
 #' @param model_parameters Tibble from [load_model_parameters()].
@@ -174,6 +204,7 @@ compute_standalone_strategy_cost <- function(
     professional_fee = professional_fee,
     office_visit_cost = office_visit_cost,
     added_or_cost = 0,
+    scheduling_coordination_cost = 0,
     expected_replacement_cost = expected_replacement_cost,
     expected_escalation_cost = expected_escalation_cost,
     expected_perforation_cost = expected_perforation_cost,
@@ -217,8 +248,12 @@ compute_combined_strategy_cost <- function(
 
   expected_perforation_cost <- compute_expected_perforation_cost(model_parameters, price_index_table)
 
+  scheduling_coordination_cost <- compute_scheduling_coordination_cost(
+    model_parameters, all_items_price_index_table
+  )
+
   expected_total_cost <- device_cost + professional_fee + added_or_cost +
-    expected_replacement_cost + expected_perforation_cost
+    expected_replacement_cost + expected_perforation_cost + scheduling_coordination_cost
 
   # No societal add-on: the patient was already coming in for the
   # bariatric surgery regardless, so this arm adds no incremental patient
@@ -229,6 +264,7 @@ compute_combined_strategy_cost <- function(
     professional_fee = professional_fee,
     office_visit_cost = 0,
     added_or_cost = added_or_cost,
+    scheduling_coordination_cost = scheduling_coordination_cost,
     expected_replacement_cost = expected_replacement_cost,
     expected_escalation_cost = 0,
     expected_perforation_cost = expected_perforation_cost,

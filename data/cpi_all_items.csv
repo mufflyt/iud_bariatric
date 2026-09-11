@@ -1,3 +1,4 @@
 year,index_value,index_source,is_placeholder
 2010,218.056,"BLS CPI-U (All Items, U.S. city average, 1982-84=100) annual average, reused from the sibling emb_colonoscopy project's literature review; RECOMMEND independently re-confirming against the live BLS series (CUUR0000SA0) before publication",FALSE
+2025,321.962,"BLS CPI-U (All Items), seasonally adjusted (FRED series CPIAUCSL), average of the 11 of 12 monthly 2025 values available from FRED as of 2026-09-10 (October 2025 not yet populated in the series at time of download; downloaded directly from https://fred.stlouisfed.org/graph/fredgraph.csv?id=CPIAUCSL&cosd=2025-01-01&coed=2025-12-01, range 318.961-326.031, mean of available months 321.962)",FALSE
 2026,332.813,"BLS CPI-U (All Items), seasonally adjusted, July 2026 (FRED series CPIAUCSL), reused from the sibling emb_colonoscopy project's literature review; RECOMMEND independently re-confirming against the live BLS/FRED series before publication",FALSE

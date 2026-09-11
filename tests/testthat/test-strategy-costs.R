@@ -22,11 +22,19 @@ test_that("compute_standalone_strategy_cost sums device + professional fee + off
 })
 
 test_that("compute_combined_strategy_cost excludes the professional fee when the toggle is FALSE", {
+  # Explicitly overrides to FALSE rather than relying on the CSV's current
+  # default (TRUE as of 2026-09-10: the gynecologist, not the bariatric
+  # surgeon, places the device), so this test exercises the toggle's
+  # FALSE branch regardless of what the base case currently defaults to.
   model_parameters <- test_model_parameters()
   price_index_table <- test_price_index_table()
   all_items_price_index_table <- test_all_items_price_index_table()
+  toggled_parameters <- override_model_parameters(
+    model_parameters,
+    list(combined_requires_separate_professional_fee = FALSE)
+  )
   combined_cost <- compute_combined_strategy_cost(
-    model_parameters, price_index_table, all_items_price_index_table
+    toggled_parameters, price_index_table, all_items_price_index_table
   )
 
   expect_equal(combined_cost$professional_fee, 0)
@@ -34,10 +42,11 @@ test_that("compute_combined_strategy_cost excludes the professional fee when the
   expect_gt(combined_cost$added_or_cost, 10 * (20.90 + 3.42)) # inflation-adjusted, so strictly bigger than nominal 2014 dollars
   expect_equal(combined_cost$expected_replacement_cost, 0.163 * (568.50 + 116.08 + 88.76))
   expect_gt(combined_cost$expected_perforation_cost, 0)
+  expect_gt(combined_cost$scheduling_coordination_cost, 0)
   expect_equal(
     combined_cost$expected_total_cost,
     568.50 + combined_cost$added_or_cost + 0.163 * (568.50 + 116.08 + 88.76) +
-      combined_cost$expected_perforation_cost
+      combined_cost$expected_perforation_cost + combined_cost$scheduling_coordination_cost
   )
 })
 
@@ -79,6 +88,32 @@ test_that("both arms carry the identical expected perforation cost, since no set
   combined_cost <- compute_combined_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
 
   expect_equal(standalone_cost$expected_perforation_cost, combined_cost$expected_perforation_cost)
+})
+
+test_that("compute_scheduling_coordination_cost is coordination minutes times inflation-adjusted scheduler wage", {
+  model_parameters <- test_model_parameters()
+  all_items_price_index_table <- test_all_items_price_index_table()
+  reference_year <- get_parameter_value(model_parameters, "reference_dollar_year")
+
+  expected <- 60 * adjust_for_inflation(0.368, 2025, reference_year, all_items_price_index_table)
+
+  expect_equal(
+    compute_scheduling_coordination_cost(model_parameters, all_items_price_index_table),
+    expected
+  )
+})
+
+test_that("only the combined arm carries a scheduling-coordination cost", {
+  # The standalone arm is a single physician's own routine office visit;
+  # only the combined arm needs two surgeons' OR time coordinated.
+  model_parameters <- test_model_parameters()
+  price_index_table <- test_price_index_table()
+  all_items_price_index_table <- test_all_items_price_index_table()
+  standalone_cost <- compute_standalone_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
+  combined_cost <- compute_combined_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
+
+  expect_equal(standalone_cost$scheduling_coordination_cost, 0)
+  expect_gt(combined_cost$scheduling_coordination_cost, 0)
 })
 
 test_that("combined arm's higher expulsion rate produces a higher expected replacement cost", {
@@ -144,12 +179,16 @@ test_that("INDEPENDENT CONFIRMATION: base-case incremental cost matches a from-s
   replacement_encounter_cost <- device + professional_fee + office_visit
   perforation_probability <- get_parameter_value(model_parameters, "iud_perforation_risk_baseline")
   perforation_cost <- perforation_probability * adjust_for_inflation(20805.84, 2015, reference_year, price_index_table)
+  coordination_minutes <- get_parameter_value(model_parameters, "combined_arm_scheduling_coordination_minutes")
+  scheduler_wage_per_min <- adjust_for_inflation(0.368, 2025, reference_year, all_items_price_index_table)
+  scheduling_coordination_cost <- coordination_minutes * scheduler_wage_per_min
 
   expected_standalone <- device + professional_fee + office_visit +
     expulsion_standalone * replacement_encounter_cost +
     failure_probability * added_or_cost +
     perforation_cost
-  expected_combined <- device + added_or_cost +
+  expected_combined <- device + professional_fee + added_or_cost +
+    scheduling_coordination_cost +
     expulsion_combined * replacement_encounter_cost +
     perforation_cost
 

@@ -119,3 +119,38 @@ management cost regardless of perforation probability, via a scripted
   CONFIRMATION` tests (base case and Medicaid scenario), and the two
   tests asserting `expected_total_cost` sums correctly.
 - **Reverted, confirmed green:** all tests pass again.
+
+**2026-09-10 -- one-way sensitivity analysis's low/high override
+assignment (`R/sensitivity_deterministic.R`, `run_one_way_sensitivity()`).**
+
+Added alongside the new deterministic sensitivity analysis. Planted
+defect: swapped which value (`low_value` vs. `high_value`) gets assigned
+to `low_parameters` vs. `high_parameters` via a scripted Python
+substitution (a realistic copy-paste mistake between two adjacent,
+near-identical override calls).
+
+- **Red:** the `INDEPENDENT CONFIRMATION` test for
+  `combined_arm_added_minutes` failed on both `gap_at_low` and
+  `gap_at_high` (each off by exactly $318, the size of the swap's
+  effect, with the sign flipped between the two assertions -- exactly
+  what a low/high swap should produce).
+- **Reverted, confirmed green:** all tests pass again.
+
+**2026-09-10 -- scheduling-coordination cost's minutes lookup
+(`R/strategy_costs.R`, `compute_scheduling_coordination_cost()`).**
+
+Added alongside the new scheduling-coordination-cost feature (the
+gynecologist, not the bariatric surgeon, places the device, so combining
+the two procedures requires coordinating two surgeons' OR time). Planted
+defect: read `combined_arm_added_minutes` (the clinical OR-time
+parameter) instead of `combined_arm_scheduling_coordination_minutes` (the
+administrative-coordination parameter) via a scripted `sed`
+substitution -- a realistic copy-paste mistake between two
+similarly-named `combined_arm_*_minutes` parameters.
+
+- **Red:** 2 tests failed -- the new unit test on
+  `compute_scheduling_coordination_cost()` directly (off by exactly $19,
+  the difference between 10 minutes at the wrong parameter's value and
+  60 minutes at the right one, times the scheduler wage) and the base-case
+  `INDEPENDENT CONFIRMATION` test on `expected_total_cost`.
+- **Reverted, confirmed green:** all tests pass again.

@@ -189,15 +189,130 @@ This was prompted by a real question worth checking rather than assuming:
 if a perforation happens during a combined (already-anesthetized,
 already-open) bariatric-surgery insertion, could it be recognized and
 managed in the same operative setting, avoiding a whole separate
-retrieval surgery? The mechanism is real but narrower than it first
-sounds: EURAS-IUD found perforation is recognized at the time of
-insertion in only a minority of cases (most present later via delayed
-diagnosis), and bariatric surgery itself operates on the stomach, not the
-pelvis, so being in the OR doesn't guarantee anyone is looking at the
-uterus. Both arms use the same full retrieval cost for now; giving the
-combined arm a partial break for the immediately-recognized subset is a
-deliberately deferred refinement, documented in
-`iud_perforation_management_cost`'s notes, not built yet.
+retrieval surgery? A specific supporting statistic (only 8.4% of
+perforations recognized at the time of insertion) turned out, on direct
+verification, not to exist in either the primary EURAS-IUD paper or its
+5-year extension study -- likely a search-synthesis error, in the same
+spirit as an earlier checked-and-rejected "3.06x odds ratio" claim in
+this project. What IS confirmed directly: the extension study found
+"approximately one third of perforations are detected 12 months after
+insertion," i.e. delayed diagnosis is common, and bariatric surgery
+itself accesses the stomach, not the pelvis, so being in the OR doesn't
+guarantee anyone is looking at the uterus regardless of timing.
+
+Rather than build a differential on an unverifiable percentage, the
+question can be bounded without it: the entire `expected_perforation_cost`
+applied to each arm is $38.71. That's the absolute most the combined
+arm's cost could drop under ANY same-setting-recognition mechanism, even
+in the impossible best case of 100% immediate recognition at zero
+marginal cost -- an 11.5% cut to the base case's $335.29 gap (see "Two
+surgeons, real coordination cost" below for why this gap is now larger
+than it was when this section was first written), leaving $296.58 even
+then. Real mechanism, too small to matter here regardless of the exact
+percentage, which is why it stays a documented, deliberately deferred
+refinement rather than a built one; see
+`iud_perforation_management_cost`'s notes and `docs/data_sources.md`,
+"Perforation cost wired into the cost engine," for the full reasoning.
+
+## One-way sensitivity analysis
+
+`R/sensitivity_deterministic.R` / `analysis/04_sensitivity_analysis.R`
+sweeps every cost-engine parameter that has a real, sourced low/high
+range across that range (one at a time, holding everything else at base
+case) and measures how much it moves the headline result: the incremental
+cost gap between the combined and standalone arms ($335.29 in the current
+base case; this was $196.39 when this analysis was first built, before
+"Two surgeons, real coordination cost" below added a real professional
+fee and a scheduling-coordination cost to the combined arm -- see that
+section for why). This replaces guesswork about where further
+data-hunting is worth the effort with an actual ranking.
+
+**The result reorders priorities.** The two biggest drivers by far are
+`direct_room_cost_per_minute` (swings the gap by up to $328) and
+`combined_arm_added_minutes` (up to $318) -- the OR-time assumptions,
+not the device cost. The still-unverified GPO device-acquisition cost
+($537-$600, the subject of a whole earlier verification effort that
+ultimately failed) swings the gap by only about $7, because it mostly
+cancels between the two arms; the tiny residual comes from a real,
+non-obvious channel this analysis surfaced -- device cost also appears
+inside the expected-replacement-cost formula, which is multiplied by a
+*different* expulsion probability in each arm, so it does not cancel
+perfectly the way a naive read of the incremental-cost principle would
+suggest. `iud_perforation_risk_baseline`, by contrast, truly does wash
+out to zero: it has no such differential channel. Every one of these
+swing values is UNCHANGED by the professional-fee/coordination-cost
+addition below, with one exception: `iud_insertion_professional_fee`'s
+own swing dropped from $45 to about $5, because that fee is now charged
+to both arms directly (see below) rather than only standalone, so it now
+mostly cancels the same way device cost does. Adding a cost that is
+identical across both arms shifts the whole gap up by a constant without
+changing any OTHER parameter's swing -- a mechanical property of the
+`abs(gap_at_high - gap_at_low)` calculation, not a coincidence.
+
+**The analysis also surfaced a real gap by trying to include something
+and being unable to, and that gap is now closed.** `iud_expulsion_
+probability_combined` -- the single number Masten et al. 2024 identified
+as most responsible for the combined arm's cost disadvantage -- had no
+sourced low/high range in `config/model_parameters.csv` at all, only a
+point estimate, so the first run of this analysis could not sweep it.
+Rather than invent a range, the primary paper's full text (PMCID
+PMC11706623, open access) was read directly for the raw numbers behind
+its headline 16.3%: 7 expulsions out of 43 combination-case placements.
+An exact Clopper-Pearson 95% binomial confidence interval computed
+directly on that proportion (6.81%-30.70%) is now this parameter's
+low/high bound, deliberately not derived from the paper's adjusted-odds-
+ratio CI, which is adjusted for covariates this project's unadjusted
+point estimate is not. This parameter ranks third (swing $185), just
+behind the two OR-time parameters -- and, reassuringly, even at the low
+end of that wide interval (6.81% expulsion), the combined arm still costs
+more than standalone ($262 gap, smaller than the $335 base case but not
+reversed), so the model's directional conclusion is robust to this
+parameter's real uncertainty. `patient_time_opportunity_cost_per_visit`
+remains an open gap of the same
+kind (used by the cost engine, no sourced range yet).
+
+## Two surgeons, real coordination cost
+
+Two real gaps closed after the model owner clarified this institution's
+actual staffing workflow (2026-09-10): **the gynecologist places the IUD,
+not the bariatric surgeon.**
+
+First, `combined_requires_separate_professional_fee` -- previously
+defaulted to FALSE as a conservative placeholder, chosen only because the
+real staffing model hadn't been confirmed -- now defaults to TRUE. Two
+different physicians performing distinct professional services in the
+same operative session each bill their own professional component; there
+was never a structural reason to assume this fee gets bundled away, only
+an absence of confirmation. The combined arm now pays
+`iud_insertion_professional_fee` ($116.08) directly, the same as
+standalone.
+
+Second, a genuinely new cost category: **scheduling-coordination cost.**
+Combining two procedures means aligning two different surgeons' OR time,
+and that coordination is real administrative labor the standalone arm
+never needs (it's a single physician's own routine office visit). The
+model owner's estimate -- each surgeon's own scheduler spends about 30
+minutes coordinating the combined case (2 schedulers x 30 minutes = 60
+minutes total) -- is the same estimate already used for the analogous
+combined-visit coordination cost in the sibling `emb_colonoscopy`
+project's model, confirmed by reading that project's own parameter file
+directly rather than re-guessed from scratch. Priced using a real wage
+rate: O*NET OnLine (the DOL/BLS-funded site that republishes BLS OEWS
+data without blocking automated access, unlike bls.gov itself, which
+returned HTTP 403 when checked directly this session) reports a $22.08/hour
+median wage for SOC 43-6013, Medical Secretaries and Administrative
+Assistants (2025 BLS data) -- the same occupational code and source
+already cited in the sibling project. 60 minutes at that wage is $22.82
+in reference-year dollars, added to the combined arm only.
+
+**Combined effect: the base case gap nearly doubled**, from $196.39 to
+$335.29. Standalone is unchanged at $868.63; combined rose from $1,065.02
+to $1,203.92 ($116.08 professional fee + $22.82 coordination cost). This
+is the single largest revision to the model's headline result this
+session, and it came from confirming a real staffing fact, not from any
+new literature source -- a reminder that institutional workflow
+assumptions can matter as much as published parameters. Mutation-tested;
+see `docs/testing_philosophy.md`.
 
 ## Cancer-prevention estimate
 
