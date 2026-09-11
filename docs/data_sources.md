@@ -16,12 +16,12 @@ model, does not work here
   unzipped the July 2026 quarterly file
   (`https://www.cms.gov/files/zip/july-2026-ndc-hcpcs-crosswalk.zip`) and
   grepped both the ASP and OPPS crosswalk CSVs for `J7296`-`J7301` and for
-  "levonorgestrel" — no matches in either file (2026-09-10).
+  "levonorgestrel" -- no matches in either file (2026-09-10).
 - **NADAC (National Average Drug Acquisition Cost) does not cover this
   device either.** Downloaded the current NADAC reference file directly
   (`https://download.medicaid.gov/data/nadac-national-average-drug-acquisition-cost-09-09-2026.csv`,
   URL confirmed via the medicaid.gov metastore API) and searched for
-  "levonorgestrel" + "intrauterine"/"IUD"/product names — no matches. NADAC
+  "levonorgestrel" + "intrauterine"/"IUD"/product names -- no matches. NADAC
   only prices retail-pharmacy-dispensed drugs; a hospital-administered
   device was never going to appear there.
 
@@ -43,13 +43,13 @@ auto-discovery convention at `https://www.denverhealth.org/cms-hpt.txt`):
 Key observation: for an **inpatient** stay (the relevant setting, since
 bariatric surgery is typically inpatient), almost every commercial payer's
 negotiated rate for CPT 58300 is `NULL` in this file, meaning it is not
-separately paid at all — its cost is bundled into the hospital's MS-DRG
+separately paid at all -- its cost is bundled into the hospital's MS-DRG
 payment for the admission. This directly supports the model's
 incremental-cost framing: there is no separate facility/professional
 reimbursement to net against for the combined arm.
 
 Also directly verified in the same file, MS-DRG 619/620/621 ("O.R.
-Procedures for Obesity", by complexity tier) — the host bariatric
+Procedures for Obesity", by complexity tier) -- the host bariatric
 procedure, for context only, not used in the incremental-cost calculation:
 CMS/Medicare rate $41,963.80 (619, with MCC) / $28,839.33 (620, with CC) /
 $27,902.21 (621, without CC/MCC); commercial payers ranged $26,000-$61,414.
@@ -70,7 +70,7 @@ $27,902.21 (621, without CC/MCC); commercial payers ranged $26,000-$61,414.
   (`connect ECONNREFUSED`). The Physicians' Alliance of America "Liletta
   Pricing Update" bulletin, which cites the same figures secondhand, was
   checked directly and turned out to be a members-only order bulletin
-  behind a login — it only confirms that AbbVie raised Liletta's WAC as of
+  behind a login -- it only confirms that AbbVie raised Liletta's WAC as of
   January 1, 2026, not the $537/$600 numbers themselves. **This parameter
   remains unverified.** Next step for real verification: a hospital
   pharmacy buyer's own GPO contract/invoice, a paid pricing database
@@ -96,9 +96,9 @@ $27,902.21 (621, without CC/MCC); commercial payers ranged $26,000-$61,414.
   either using the site's own search UI interactively (`SearchCe` page) or
   downloading its published "Covered Entity Daily Report" export (Excel/
   JSON, linked from `https://340bopais.hrsa.gov/Reports`) and searching it
-  directly — not yet done. Separately relevant: Disproportionate Share
+  directly -- not yet done. Separately relevant: Disproportionate Share
   Hospitals (the 340B category Denver Health would most plausibly fall
-  under) are subject to the "GPO Prohibition" — they cannot purchase
+  under) are subject to the "GPO Prohibition" -- they cannot purchase
   covered outpatient drugs through group-purchasing-organization
   arrangements at all. If Denver Health is a DSH-category covered entity,
   `iud_device_acquisition_cost_gpo` would not even be an option available
@@ -158,7 +158,7 @@ capture:
   aged 10-19, 43 (16.2%) placed as a combination case with metabolic/
   bariatric surgery (MBS). **This is the source for
   `iud_expulsion_probability_standalone`/`_combined` and
-  `iud_expulsion_odds_ratio_combined_vs_standalone`** — combined placement
+  `iud_expulsion_odds_ratio_combined_vs_standalone`** -- combined placement
   carried a significantly higher 12-month expulsion rate than non-combined
   placement (16.3% vs. 5.6% overall; adjusted OR=3.23, P=.024). Wired
   directly into `R/strategy_costs.R`'s `compute_expected_replacement_cost()`
@@ -220,7 +220,7 @@ triangulation confirming the order of magnitude.
   same per-minute cost as the combined arm's OR/anesthesia minutes
   (`compute_added_or_cost()`), with no duplicate device or professional
   fee charged. This is a simplifying modeling assumption, not itself a
-  sourced escalation-cost figure — no study measures what actually happens
+  sourced escalation-cost figure -- no study measures what actually happens
   economically after a failed office IUD attempt.
 
 ## Two omissions decided explicitly, not silently (added 2026-09-11)
@@ -228,7 +228,7 @@ triangulation confirming the order of magnitude.
 - **Routine device removal (CPT 58301, $212.58 cash price per the Denver
   Health MRF already in this table)** is not priced in the incremental
   comparison. Every device is eventually removed regardless of which arm
-  inserted it, so it cancels out under the incremental-cost principle —
+  inserted it, so it cancels out under the incremental-cost principle --
   recorded as `iud_routine_removal_professional_fee` (reference-only) so
   the omission is documented.
 - **Differential uterine-perforation risk by insertion setting** is not
@@ -257,7 +257,7 @@ series CUUS0000SAM data points for 2014, downloaded directly
 2026-09-10/11 from
 `https://fred.stlouisfed.org/graph/fredgraph.csv?id=CUUS0000SAM`) rather
 than the sibling project's own flagged-placeholder 2014 value
-(431.9, geometrically interpolated, not a real reported BLS figure) — this
+(431.9, geometrically interpolated, not a real reported BLS figure) -- this
 project's CPI table is, on this one point, better-sourced than the one it
 was copied from. Consider backporting this real value to the sibling
 project's `data/cpi_medical_care.csv` at some point.
@@ -273,7 +273,7 @@ funder of LARC insertion nationally.
   Downloaded Colorado HCPF's own "Health First Colorado Physician Fee
   Schedule Rates Effective April 1, 2026" PDF directly
   (`https://hcpf.colorado.gov/sites/hcpf/files/01_CO_Fee%20Schedule_Health%20First%20Colorado_04012026%20v1.0.pdf`
-  — note: this URL 403s with a default `curl` user-agent via CloudFront
+  -- note: this URL 403s with a default `curl` user-agent via CloudFront
   bot-blocking; a browser user-agent string works), converted to text
   with `pdftotext -layout`, and found the "Family Planning - Professional
   Component" line for CPT 99213: $77.39 (base), $82.39 (with GT/telehealth
@@ -300,7 +300,7 @@ funder of LARC insertion nationally.
   while researching this scenario:** effective 2020-01-01, Colorado
   Medicaid separately reimburses Immediate Postpartum LARC (IPP-LARC)
   devices inserted during an otherwise-DRG-bundled inpatient stay, "at the
-  fee schedule rate or the amount billed, whichever is less" — funded by
+  fee schedule rate or the amount billed, whichever is less" -- funded by
   reducing delivery DRG weights 540/542/560 by 0.004 to offset the new
   separate payment (source: web search of HCPF's own billing-manual
   summaries, corroborated by the PMC9198998 review's Table 3 listing
@@ -309,7 +309,7 @@ funder of LARC insertion nationally.
   Inpatient" policy). **This is exactly the structural problem this
   project's own Denver Health MRF analysis independently identified**
   (CPT 58300/device J-codes showing null inpatient negotiated rates,
-  meaning no separate payment exists) — Colorado Medicaid has already
+  meaning no separate payment exists) -- Colorado Medicaid has already
   built a real fix for it, just scoped narrowly to delivery admissions.
   The `medicaid_illustrative` scenario sets
   `combined_requires_separate_professional_fee = TRUE` as an explicit
@@ -318,15 +318,64 @@ funder of LARC insertion nationally.
   own description field as not current law.
 - **The device's own GPO acquisition cost is unchanged across scenarios.**
   Which payer eventually reimburses a claim doesn't change what the
-  hospital pays its supplier to acquire the device — that's a supply-chain
+  hospital pays its supplier to acquire the device -- that's a supply-chain
   cost, not a reimbursement question. Only `office_visit_em_cost`,
   `iud_insertion_professional_fee`, and the professional-fee toggle vary
   by scenario.
 - **Result:** under this scenario, the combined arm's cost disadvantage
-  widens further, not narrows — it now pays the professional fee it
+  widens further, not narrows -- it now pays the professional fee it
   avoided in the base case, on top of its existing OR-time and
   higher-expulsion-risk costs, while the standalone arm's total barely
   moves. Run `Rscript analysis/02_scenario_analysis.R` to reproduce.
+
+### Colorado is not exceptional: this carve-out mechanism is near-universal across state Medicaid programs (checked 2026-09-11)
+
+Bhatt & Stevens et al., "Immediate Postpartum Long-Acting Reversible
+Contraception: Review of Insertion and Device Reimbursement Policies,"
+*Women's Health Issues* 2021 (PMC9198998, read directly; policy data
+collected October 2017-May 2018). Full state-by-state Table 3, device-cost
+reimbursement separate from the global obstetric fee:
+
+- **Yes:** Arizona, California, Colorado, Connecticut, Delaware, Florida,
+  Georgia, Hawaii, Illinois, Indiana, Iowa, Louisiana, Maine, Maryland,
+  Mississippi, Missouri, Montana, Nevada, New Hampshire, New Mexico
+  (vaginal delivery only), New York, Ohio, Oklahoma, Pennsylvania, South
+  Carolina, South Dakota, Tennessee, Texas, Virginia, Washington, West
+  Virginia (31 states as of 2017-2018 data).
+- **No, or not found in this table:** Massachusetts, North Carolina, Utah,
+  Vermont.
+- **No policy identified at all:** Alaska, Arkansas, Idaho, Kansas,
+  Michigan, Minnesota, Nebraska, New Jersey, North Dakota, Oregon, Rhode
+  Island, Wyoming.
+- Billing mechanism varies (inpatient carve-out vs. a separate outpatient
+  claim vs. both), and the entity authorized to bill varies (hospital,
+  physician, or both). Colorado's specific inpatient/hospital-billed
+  mechanism, used as the basis for this scenario, is one common pattern
+  among several, not universal in its exact form.
+
+**More current, higher-level figure:** a corroborating source (search
+summary citing ACOG's own maintained tracker, checked 2026-09-11; a direct
+fetch of the ACOG page itself returned HTTP 402/blocked, likely
+anti-scraping rather than an actual paywall on public guidance) states
+that as of October 2023, 45 states plus DC have published Medicaid
+guidance on immediate postpartum LARC, and device-cost reimbursement
+separate from the global fee is present in 92% of those state policies
+(roughly 41 states). That is substantially more than the 2017-2018 table
+above, consistent with continued state-by-state adoption over the
+intervening five years (ACOG has run an active advocacy campaign on this
+specific issue). The exact current per-state list, and each state's
+payment amount, was not independently verified past this aggregate
+figure.
+
+**Why this matters for this project:** every one of these policies is
+scoped to postpartum/delivery admissions specifically. None was found to
+extend a device-cost carve-out to a non-obstetric inpatient stay like
+bariatric surgery. But near-universal adoption of the underlying
+mechanism (a state Medicaid program choosing to un-bundle a LARC device's
+cost from an otherwise-fixed DRG payment) means the `medicaid_illustrative`
+scenario's policy-analogy assumption is grounded in common, not
+exceptional, state Medicaid practice: the mechanism exists almost
+everywhere, just not yet pointed at this specific admission type.
 
 ## Reused from the sibling `emb_colonoscopy` project
 
@@ -343,5 +392,5 @@ directly. See that project's `docs/data_sources.md` and
 **Done as of 2026-09-11:** `direct_room_cost_per_minute` and
 `anesthesia_cost_per_minute` are now inflation-adjusted to
 `reference_dollar_year` via `R/inflation.R` before use (see "Inflation
-adjustment" above) — this scaffold no longer reports 2014-dollar OR/
+adjustment" above) -- this scaffold no longer reports 2014-dollar OR/
 anesthesia costs mixed in with 2026-dollar everything-else.
