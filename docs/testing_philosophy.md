@@ -57,3 +57,21 @@ via a scripted `sed` substitution.
   $100 error propagating through the expulsion/escalation-cost formulas
   that multiply it).
 - **Reverted, confirmed green:** all tests pass again.
+
+**2026-09-10 -- Medicaid scenario's insertion-fee override value, after
+replacing the national estimate with a real Colorado rate
+(`R/scenarios.R`, `build_scenario_definitions()`).**
+
+Added when the previously-unfound Colorado CPT 58300 Medicaid rate ($58.65)
+was located by parsing every worksheet of Colorado HCPF's own physician
+fee-schedule workbook directly, replacing the national 2015 estimate
+($103, inflation-adjusted) this scenario had used before. Planted defect:
+changed the override from `58.65` to `158.65` via a scripted `sed`
+substitution.
+
+- **Red:** both the direct assertion on the override value and the
+  independent-confirmation test on the resulting standalone total failed
+  (off by exactly $100 and $106 respectively, the same propagation pattern
+  as the CPT 99213 mutation test above, since this fee flows through the
+  same expulsion/escalation-cost formulas).
+- **Reverted, confirmed green:** all tests pass again.

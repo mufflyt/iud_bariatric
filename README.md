@@ -135,9 +135,10 @@ found source, and whether the model's anchor hospital is actually
 manuscript, or figures yet.
 
 A Medicaid payer scenario (`analysis/02_scenario_analysis.R`) is now
-built, using a real, directly-confirmed Colorado Medicaid rate for the
-office-visit component and a national estimate for the insertion fee
-(Colorado's own fee schedule doesn't list CPT 58300). Researching it
+built, using real, directly-confirmed Colorado Medicaid rates for both the
+office-visit component ($77.39) and the insertion fee ($58.65, CPT 58300;
+found 2026-09-10 by parsing every worksheet of Colorado's own fee-schedule
+workbook, not just the one sheet its PDF export shows). Researching it
 surfaced something directly relevant: Colorado Medicaid already has a
 real carve-out policy that separately pays for a LARC device inserted
 during an otherwise-DRG-bundled inpatient stay, exactly the structural
@@ -155,3 +156,15 @@ acquisition cost, well below any of these charge prices, as the
 conservative base-case driver rather than an understatement. See
 `docs/data_sources.md` for the full breakdown, including why NYU's CPT
 58300 price could not be used as a second professional-fee data point.
+
+A fourth and fifth data point (Colorado Medicaid's own physician-
+administered-drug fee schedule, and CMS's national State Drug Utilization
+Data for 2025) reinforce the same conclusion from a completely different
+angle, real Medicaid reimbursement rather than hospital charges: Colorado
+pays $931.73-$978.32 for this device and the national 2025 Medicaid
+average across 45,988 reimbursed units is $857.54, both landing in the
+same $840-$980 band as Denver Health and UCLA. Reimbursement rates aren't
+used to change the model's acquisition-cost parameters (a payer's
+reimbursement doesn't change what a hospital pays its supplier), but as a
+fourth and fifth independent source agreeing on the same band, they make
+NYU's much higher charge price look like the outlier, not the norm.

@@ -14,28 +14,8 @@
 #' Named scenario definitions
 #'
 #' @param model_parameters Tibble from [load_model_parameters()].
-#' @param price_index_table Tibble from [load_price_index_table()], used
-#'   to inflation-adjust the Medicaid scenario's 2015-dollar national
-#'   estimate.
-#' @param reference_year Numeric scalar target year for that adjustment.
 #' @return A named list of override lists, one per scenario.
-build_scenario_definitions <- function(
-  model_parameters,
-  price_index_table = load_price_index_table("data/cpi_medical_care.csv"),
-  reference_year = get_parameter_value(model_parameters, "reference_dollar_year")
-) {
-  # National 2015 Medicaid-context estimate for the insertion professional
-  # fee: $71-$135 (midpoint $103), from the systematic review of state
-  # postpartum-LARC reimbursement policies (see docs/data_sources.md,
-  # "Medicaid payer scenario" section, for the full citation and why a
-  # Colorado-specific CPT 58300 rate could not be found despite directly
-  # downloading and searching Colorado's own April 2026 Medicaid physician
-  # fee schedule).
-  medicaid_professional_fee_national_2015 <- 103
-  medicaid_professional_fee_inflated <- adjust_for_inflation(
-    medicaid_professional_fee_national_2015, 2015, reference_year, price_index_table
-  )
-
+build_scenario_definitions <- function(model_parameters) {
   list(
     base_case = list(
       overrides = list(),
@@ -45,7 +25,7 @@ build_scenario_definitions <- function(
     medicaid_illustrative = list(
       overrides = list(
         office_visit_em_cost = 77.39,
-        iud_insertion_professional_fee = medicaid_professional_fee_inflated,
+        iud_insertion_professional_fee = 58.65,
         combined_requires_separate_professional_fee = "TRUE"
       ),
       description = base::paste0(
@@ -53,13 +33,17 @@ build_scenario_definitions <- function(
         "REAL, currently-effective Health First Colorado Medicaid Family ",
         "Planning professional-component rate for CPT 99213 (directly ",
         "confirmed 2026-09-11 from Colorado HCPF's own April 2026 physician ",
-        "fee schedule PDF). iud_insertion_professional_fee = $",
-        base::round(medicaid_professional_fee_inflated, 2), " is NOT Colorado-specific -- ",
-        "Colorado's own fee schedule was searched directly and does not list ",
-        "CPT 58300 at all (it may live in a different Family Planning/OB ",
-        "billing manual not yet located); this uses a national 2015 Medicaid-",
-        "context estimate ($71-$135, midpoint $103) inflation-adjusted to ",
-        "the reference year instead. combined_requires_separate_professional_fee ",
+        "fee schedule PDF). iud_insertion_professional_fee = $58.65 IS ",
+        "Colorado-specific -- found 2026-09-10 by parsing every worksheet of ",
+        "Colorado HCPF's own '01_CO_Fee Schedule_Health First Colorado' ",
+        "workbook (effective 07/01/2026) directly rather than the single ",
+        "printable sheet a PDF export shows; CPT 58300 pays $58.65 under both ",
+        "its DEFAULT and Family-Planning-modifier billing rows. This replaces ",
+        "the earlier national 2015 estimate ($71-$135, midpoint $103, ",
+        "inflation-adjusted) that this scenario previously used while that ",
+        "rate remained unfound (see docs/data_sources.md, 'Medicaid payer ",
+        "scenario' section, for the prior estimate and how the real rate was ",
+        "located). combined_requires_separate_professional_fee ",
         "is set TRUE as a POLICY-ANALOGY assumption, not current law: Colorado ",
         "Medicaid has a REAL separate-payment carve-out for LARC devices ",
         "inserted during an otherwise-DRG-bundled inpatient stay (effective ",
@@ -71,7 +55,13 @@ build_scenario_definitions <- function(
         "carve-out were extended to bariatric-surgery DRGs. The device's own ",
         "GPO acquisition cost is left unchanged in both scenarios: which ",
         "payer eventually reimburses a claim does not change what the ",
-        "hospital pays its supplier to acquire the device in the first place."
+        "hospital pays its supplier to acquire the device in the first place. ",
+        "Note Colorado Medicaid's own physician-administered-drug fee ",
+        "schedule (see iud_j7297_medicaid_reimbursement_colorado in ",
+        "config/model_parameters.csv) pays $978.32 for this device, well ",
+        "above its GPO acquisition cost -- the barrier this scenario models ",
+        "is whether the claim gets paid at all under bariatric-surgery DRG ",
+        "bundling, not whether the payment rate is adequate when it happens."
       ),
       provisional = TRUE
     )
@@ -91,7 +81,7 @@ run_scenario_analysis <- function(
   price_index_table = load_price_index_table("data/cpi_medical_care.csv"),
   all_items_price_index_table = load_price_index_table("data/cpi_all_items.csv")
 ) {
-  scenario_definitions <- build_scenario_definitions(model_parameters, price_index_table)
+  scenario_definitions <- build_scenario_definitions(model_parameters)
 
   base::message("Running ", base::length(scenario_definitions), " scenario(s).")
 

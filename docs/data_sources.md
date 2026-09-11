@@ -126,6 +126,22 @@ and `iud_58300_cash_price_nyu_langone` in `config/model_parameters.csv`
 (all `category = reference_only`, evidence tier A, not consumed by the
 cost engine) for the exact figures and full source strings.
 
+**A fourth, national data point corroborates the same band.** CMS's State
+Drug Utilization Data (SDUD) 2025 file (downloaded directly 2026-09-10
+from `https://download.medicaid.gov/data/sdud2025_updatedjuly2026.csv`,
+discovered via the `data.medicaid.gov` metastore API) reports actual
+Medicaid reimbursement, summed across every reporting state's FFS and MCO
+claims for calendar-year 2025: Liletta averaged $857.54/unit (45,988
+units, $39,437,116 total, 116 of 356 state-quarter rows privacy-suppressed
+and excluded rather than treated as zero), Mirena $1,213.43/unit (243,398
+units), Kyleena $1,247.53/unit (22,829 units), Skyla $1,063.36/unit (4,145
+units). Four independently-sourced figures now cluster in the same
+$840-$980 band for this device class (Denver Health $837.67, UCLA
+$845-$950, Colorado Medicaid PAD schedule $931.73-$978.32, national
+Medicaid average $857.54), with NYU Langone's $2,907.82 the clear outlier
+rather than the norm. See `iud_j7297_medicaid_national_reimbursement_2025`
+in `config/model_parameters.csv`.
+
 ## Secondary-source numbers needing re-verification
 
 - **Non-340B GPO acquisition cost ($537-$600): verification ATTEMPTED and
@@ -394,23 +410,40 @@ funder of LARC insertion nationally.
   Component" line for CPT 99213: $77.39 (base), $82.39 (with GT/telehealth
   modifier). This is the source for the Medicaid scenario's
   `office_visit_em_cost` override.
-- **CPT 58300 (IUD insertion) does NOT appear anywhere in that same fee
-  schedule PDF**, despite the document covering a broad range of
-  procedure codes (confirmed by checking that other 5xxxx-range codes,
-  e.g. urology codes in the 50000s, do appear normally). It likely lives
-  in a different Colorado Medicaid billing manual (HCPF publishes
-  separate "Family Planning Benefit Expansion," "Reproductive Health
-  Care," and "Obstetrical Care" billing manuals) not yet located. Given
-  this, the Medicaid scenario's `iud_insertion_professional_fee` override
-  uses a national (not Colorado-specific) 2015 Medicaid-context estimate
-  instead: $71-$135 (midpoint $103), from Bhatt & Stevens et al.,
-  "Immediate Postpartum Long-Acting Reversible Contraception: Review of
-  Insertion and Device Reimbursement Policies," a 2022 systematic review
-  of state Medicaid postpartum-LARC reimbursement policies (PMC9198998,
-  read directly), inflation-adjusted from 2015 to `reference_dollar_year`
-  using a newly-added real 2015 CPI-Medical row in
-  `data/cpi_medical_care.csv` (446.752, same FRED-download methodology as
-  the 2014 row).
+- **UPDATE (2026-09-10): CPT 58300 does appear in Colorado's fee
+  schedule, real rate $58.65, found once the workbook was parsed
+  directly.** The April 2026 PDF export checked above genuinely does not
+  show it, but Colorado HCPF's underlying Excel workbook
+  (`01_CO_Fee Schedule_Health First Colorado_07012026 v1.2.xlsx`,
+  downloaded directly from
+  `https://hcpf.colorado.gov/sites/hcpf/files/01_CO_Fee%20Schedule_Health%20First%20Colorado_07012026%20v1.2.xlsx`,
+  linked from `https://hcpf.colorado.gov/provider-rates-fee-schedule`) has
+  13 worksheets, and the code lives in one (`Sheet3`, the underlying rate
+  table) that the single printable page the PDF is exported from does not
+  include. Parsing every worksheet's raw XML directly (rather than relying
+  on a PDF-to-text conversion of one sheet) found two billing rows for CPT
+  58300, both paying $58.65: `58300DEF` (default) and `58300FPPFP`
+  (Family-Planning-modifier). This is now the Medicaid scenario's real,
+  Colorado-specific `iud_insertion_professional_fee` override, replacing
+  the national 2015 Medicaid-context estimate this project used previously
+  ($71-$135, midpoint $103, from Bhatt & Stevens et al., "Immediate
+  Postpartum Long-Acting Reversible Contraception: Review of Insertion and
+  Device Reimbursement Policies," PMC9198998, inflation-adjusted from 2015;
+  kept here as a record of the earlier estimate, not as a live parameter).
+  Lesson for future searches of these fee-schedule workbooks: check every
+  tab, not just the one a PDF export happens to show.
+- **A related, Colorado-specific finding from the same workbook family:
+  the PAD (physician-administered-drug) fee schedule.** Colorado HCPF
+  separately publishes a drug-only fee schedule
+  (`PAD Fee Schedule - CY 2026_Q1_Q2_Q3 v1.3.xlsx`, downloaded directly
+  from `https://hcpf.colorado.gov/sites/hcpf/files/PAD%20Fee%20Schedule%20-%20CY%202026_Q1_Q2_Q3%20v1.3.xlsx`)
+  giving real, current Colorado Medicaid reimbursement rates for all four
+  LNG-IUD J-codes: J7297/Liletta $978.32 (Q2-Q4 2026; $931.73 in Q1),
+  J7298/Mirena and J7296/Kyleena both $1,272.44, J7301/Skyla $1,059.52.
+  These are reimbursement rates, not acquisition costs, so they are
+  recorded as `iud_j7297_medicaid_reimbursement_colorado` in
+  `config/model_parameters.csv` (reference only) rather than used to
+  change the device-cost parameter; see that row's notes for why.
 - **A real, directly relevant Colorado Medicaid policy precedent, found
   while researching this scenario:** effective 2020-01-01, Colorado
   Medicaid separately reimburses Immediate Postpartum LARC (IPP-LARC)

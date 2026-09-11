@@ -1,7 +1,7 @@
 test_that("build_scenario_definitions returns base_case and medicaid_illustrative", {
   model_parameters <- test_model_parameters()
   price_index_table <- test_price_index_table()
-  scenario_definitions <- build_scenario_definitions(model_parameters, price_index_table)
+  scenario_definitions <- build_scenario_definitions(model_parameters)
 
   expect_equal(sort(names(scenario_definitions)), c("base_case", "medicaid_illustrative"))
   expect_false(scenario_definitions$base_case$provisional)
@@ -13,7 +13,7 @@ test_that("base_case scenario has no overrides and reproduces compute_strategy_c
   price_index_table <- test_price_index_table()
   all_items_price_index_table <- test_all_items_price_index_table()
 
-  scenario_definitions <- build_scenario_definitions(model_parameters, price_index_table)
+  scenario_definitions <- build_scenario_definitions(model_parameters)
   expect_equal(scenario_definitions$base_case$overrides, list())
 
   scenario_results <- run_scenario_analysis(model_parameters, price_index_table, all_items_price_index_table)
@@ -33,9 +33,16 @@ test_that("base_case scenario has no overrides and reproduces compute_strategy_c
 test_that("medicaid_illustrative scenario uses the real Colorado CPT 99213 rate", {
   model_parameters <- test_model_parameters()
   price_index_table <- test_price_index_table()
-  scenario_definitions <- build_scenario_definitions(model_parameters, price_index_table)
+  scenario_definitions <- build_scenario_definitions(model_parameters)
 
   expect_equal(scenario_definitions$medicaid_illustrative$overrides$office_visit_em_cost, 77.39)
+})
+
+test_that("medicaid_illustrative scenario uses the real Colorado CPT 58300 rate", {
+  model_parameters <- test_model_parameters()
+  scenario_definitions <- build_scenario_definitions(model_parameters)
+
+  expect_equal(scenario_definitions$medicaid_illustrative$overrides$iud_insertion_professional_fee, 58.65)
 })
 
 test_that("medicaid_illustrative scenario turns on the combined arm's separate professional fee", {
@@ -79,7 +86,7 @@ test_that("INDEPENDENT CONFIRMATION: medicaid_illustrative standalone cost match
   reference_year <- get_parameter_value(model_parameters, "reference_dollar_year")
 
   device <- get_parameter_value(model_parameters, "iud_device_acquisition_cost_gpo")
-  medicaid_professional_fee <- adjust_for_inflation(103, 2015, reference_year, price_index_table)
+  medicaid_professional_fee <- 58.65
   medicaid_office_visit <- 77.39
   expulsion_standalone <- get_parameter_value(model_parameters, "iud_expulsion_probability_standalone")
   failure_probability <- get_parameter_value(model_parameters, "standalone_office_failure_probability")
