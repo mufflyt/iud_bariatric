@@ -111,6 +111,49 @@ $27,902.21 (621, without CC/MCC); commercial payers ranged $26,000-$61,414.
   obgynbillco.com), not independently confirmed against a second primary
   payer fee schedule.
 
+## Strengthened evidence (added 2026-09-11)
+
+- **`combined_arm_added_minutes` now has a bariatric-surgery-context
+  corroborating source**, not just a general non-bariatric proxy: a
+  retrospective review of 25 patients undergoing concomitant laparoscopic
+  bilateral salpingectomy at the time of primary sleeve gastrectomy or
+  gastric bypass (12 sleeve, 13 bypass, single institution, 6 years) found
+  salpingectomy added approximately 10 minutes to operative time
+  (conference abstract, *Surgery for Obesity and Related Diseases*,
+  April 2026). Confirmed via two independently-worded search summaries
+  converging on identical specific details (patient counts, procedure
+  split, time estimate); direct full-text access to soard.org returned
+  HTTP 403. Not IUD-specific, but it is real bariatric-OR-context data for
+  a comparably minor gynecologic add-on procedure, and it lands almost
+  exactly on the existing 10-minute estimate. Evidence tier upgraded from
+  C to B.
+- **`iud_expulsion_probability_standalone`'s high bound is now a real
+  adult, obesity-specific figure**, not an arbitrary band: re-read
+  Saito-Tom et al. 2015 (the same paper already used for
+  `standalone_office_failure_probability`) specifically for its expulsion
+  outcome (distinct from insertion difficulty/failure, which was the
+  outcome originally extracted from this paper): 11/145 (8%) overall
+  12-month expulsion, 11% in obese women specifically (vs. 11% normal
+  weight, 4% overweight; P=.47, authors describe the study as
+  underpowered). The base value stays at Masten 2024's 5.6% because that
+  is the only source with a PAIRED standalone-vs-combined comparison in
+  one cohort (the model's central 3.23x differential-risk finding depends
+  on that pairing; Saito-Tom has no combined-insertion arm to compare
+  against). But using Saito-Tom's real adult-obese rate as the high bound,
+  instead of an assumed range, partially closes the generalizability gap
+  that Masten's cohort is adolescents (ages 10-19), not adults. Evidence
+  tier upgraded from C to B.
+- **A specific claim checked and REJECTED:** a search-engine summary
+  attributed a "class III obesity (BMI>=40), 3.06x odds of expulsion"
+  finding to what appeared to be the same University of Hawaii research
+  group (matching ethnic-composition details). Directly re-fetched
+  Saito-Tom et al. 2015's full text with a targeted prompt asking
+  specifically for this odds ratio: it does not appear anywhere in the
+  paper. The paper categorizes BMI into only three groups (normal,
+  overweight, obese), not a separate class III/BMI>=40 category, and
+  reports no such odds ratio. This looks like a search-summarization
+  error, not a real finding, and is not used anywhere in this model.
+
 ## Literature gaps (searched for, not found)
 
 - **Combined bariatric-surgery IUD placement is real, documented practice

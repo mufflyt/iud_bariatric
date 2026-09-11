@@ -116,6 +116,17 @@ add-on alongside the healthcare-sector total (Ray et al. 2015, reused from
 the sibling project). Every new piece of blocking logic has been
 mutation-tested (see `docs/testing_philosophy.md`).
 
+Two general-population proxies were strengthened with corroborating,
+more-relevant evidence (2026-09-11): `combined_arm_added_minutes` now has
+a real bariatric-surgery-context data point (a concomitant-salpingectomy
+timing study, landing almost exactly on the existing 10-minute estimate),
+and `iud_expulsion_probability_standalone`'s upper bound now uses a real
+adult, obesity-specific expulsion rate instead of an assumed range,
+partially closing the gap that its paired-comparison source (Masten 2024)
+is an adolescent cohort. A separate specific claim (a "3.06x odds ratio
+for class III obesity") was checked directly against its purported source
+and found not to exist there; discarded rather than used.
+
 Two real data gaps remain unresolved despite direct attempts: the GPO
 device-acquisition cost ($537-$600) could not be verified from its only
 found source, and whether the model's anchor hospital is actually
