@@ -1,7 +1,7 @@
 test_that("compare_combined_vs_standalone flags the correct cheaper strategy", {
   model_parameters <- test_model_parameters()
   strategy_costs <- compute_strategy_costs(
-    model_parameters, test_price_index_table(), test_all_items_price_index_table()
+    model_parameters, test_price_index_table(), test_all_items_price_index_table(), test_cancer_prevention_parameters()
   )
   comparison <- compare_combined_vs_standalone(strategy_costs)
 

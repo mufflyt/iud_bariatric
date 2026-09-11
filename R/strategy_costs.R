@@ -72,7 +72,18 @@
 #' return for their scheduled visit at all. `expected_total_cost` stays a
 #' cost-GIVEN-completion figure throughout this file, matching every
 #' other cost component here; the completion-probability gap is reported
-#' alongside it, not folded into it.
+#' alongside it, not folded into it. `expected_cost_per_referred_patient`
+#' also includes `expected_missed_cancer_prevention_cost` (standalone
+#' only) -- the same immediate-vs-interval-postpartum-LARC literature
+#' that studies this exact structural problem (a patient guaranteed
+#' placement during an existing admission vs. one requiring a separate,
+#' loss-to-follow-up-prone visit) chains that loss through to a real
+#' downstream outcome rather than treating it as a free pass (Washington
+#' et al. 2015; Gariepy et al. 2015, both chaining to unintended
+#' pregnancy). This population's actual stake is different: this device
+#' also protects against endometrial cancer (see `R/cancer_prevention.R`),
+#' so that is the outcome chained here instead, via
+#' `compute_expected_missed_cancer_prevention_cost()`.
 
 #' Compute the expected cost of replacing an expelled device
 #'
@@ -194,6 +205,67 @@ compute_postop_discussion_cost <- function(model_parameters, price_index_table) 
   discussion_minutes * wage_per_minute
 }
 
+#' Compute the expected cost of missed cancer prevention for a
+#' standalone patient lost to follow-up
+#'
+#' A patient scheduled for a standalone visit who never returns for it
+#' (see `standalone_loss_to_follow_up_probability`) does not just miss
+#' contraception -- in this population, she also misses the LNG-IUD's
+#' endometrial-cancer-protective effect (see `R/cancer_prevention.R`),
+#' on top of whatever risk reduction bariatric surgery itself already
+#' provides. This reuses that module's own functions
+#' (`compute_post_surgery_baseline_risk()`,
+#' `compute_iud_absolute_risk_reduction()`) rather than re-deriving the
+#' risk arithmetic, so the two modules cannot silently drift apart.
+#' Mirrors how the immediate-vs-interval-postpartum-LARC literature
+#' (Washington et al. 2015; Gariepy et al. 2015) prices loss to
+#' follow-up: not as a side metric, but as an expected downstream cost,
+#' chained through to a real adverse outcome and its treatment cost --
+#' here, endometrial cancer, since that is this population's actual
+#' stake, in place of those papers' unintended-pregnancy chain, which
+#' has no bearing on a bariatric-surgery population already avoiding
+#' pregnancy postoperatively.
+#'
+#' @param model_parameters Tibble from [load_model_parameters()].
+#' @param cancer_prevention_parameters Tibble from
+#'   [load_model_parameters()] pointed at
+#'   `config/cancer_prevention_parameters.csv`.
+#' @param price_index_table Tibble from [load_price_index_table()], used
+#'   to inflation-adjust `endometrial_cancer_treatment_cost` to
+#'   `reference_dollar_year`, the same as every other dollar figure in
+#'   this file.
+#' @return Numeric scalar, in `reference_dollar_year` dollars.
+compute_expected_missed_cancer_prevention_cost <- function(
+  model_parameters,
+  cancer_prevention_parameters,
+  price_index_table
+) {
+  loss_to_follow_up_probability <- get_parameter_value(
+    model_parameters, "standalone_loss_to_follow_up_probability"
+  )
+
+  lifetime_risk <- get_parameter_value(
+    cancer_prevention_parameters, "endometrial_cancer_lifetime_risk_usual_care_bmi40"
+  )
+  surgery_hazard_ratio <- get_parameter_value(
+    cancer_prevention_parameters, "bariatric_surgery_endometrial_cancer_hazard_ratio"
+  )
+  iud_incidence_ratio <- get_parameter_value(
+    cancer_prevention_parameters, "iud_endometrial_cancer_incidence_ratio"
+  )
+
+  post_surgery_no_iud_risk <- compute_post_surgery_baseline_risk(lifetime_risk, surgery_hazard_ratio)
+  iud_absolute_risk_reduction <- compute_iud_absolute_risk_reduction(post_surgery_no_iud_risk, iud_incidence_ratio)
+
+  reference_year <- get_parameter_value(model_parameters, "reference_dollar_year")
+  row <- model_parameters |> dplyr::filter(.data$parameter == "endometrial_cancer_treatment_cost")
+  treatment_cost <- adjust_for_inflation(
+    base::as.numeric(row$base_value[[1]]), row$dollar_year[[1]], reference_year, price_index_table
+  )
+
+  loss_to_follow_up_probability * iud_absolute_risk_reduction * treatment_cost
+}
+
 #' Compute the standalone arm's societal (patient time/travel) add-on
 #'
 #' @param model_parameters Tibble from [load_model_parameters()].
@@ -259,7 +331,8 @@ compute_probability_device_placed <- function(model_parameters, strategy) {
 compute_standalone_strategy_cost <- function(
   model_parameters,
   price_index_table = load_price_index_table("data/cpi_medical_care.csv"),
-  all_items_price_index_table = load_price_index_table("data/cpi_all_items.csv")
+  all_items_price_index_table = load_price_index_table("data/cpi_all_items.csv"),
+  cancer_prevention_parameters = load_model_parameters("config/cancer_prevention_parameters.csv")
 ) {
   device_cost <- get_parameter_value(
     model_parameters, "iud_device_acquisition_cost_gpo"
@@ -288,6 +361,11 @@ compute_standalone_strategy_cost <- function(
 
   societal_addon <- compute_patient_time_addon(model_parameters, all_items_price_index_table)
 
+  probability_device_placed <- compute_probability_device_placed(model_parameters, "standalone")
+  expected_missed_cancer_prevention_cost <- compute_expected_missed_cancer_prevention_cost(
+    model_parameters, cancer_prevention_parameters, price_index_table
+  )
+
   tibble::tibble(
     strategy = "standalone",
     device_cost = device_cost,
@@ -303,9 +381,10 @@ compute_standalone_strategy_cost <- function(
     expected_total_cost = expected_total_cost,
     societal_addon = societal_addon,
     societal_total_cost = expected_total_cost + societal_addon,
-    probability_device_placed = compute_probability_device_placed(model_parameters, "standalone"),
-    expected_cost_per_referred_patient = expected_total_cost *
-      compute_probability_device_placed(model_parameters, "standalone")
+    probability_device_placed = probability_device_placed,
+    expected_missed_cancer_prevention_cost = expected_missed_cancer_prevention_cost,
+    expected_cost_per_referred_patient = expected_total_cost * probability_device_placed +
+      expected_missed_cancer_prevention_cost
   )
 }
 
@@ -316,7 +395,8 @@ compute_standalone_strategy_cost <- function(
 compute_combined_strategy_cost <- function(
   model_parameters,
   price_index_table = load_price_index_table("data/cpi_medical_care.csv"),
-  all_items_price_index_table = load_price_index_table("data/cpi_all_items.csv")
+  all_items_price_index_table = load_price_index_table("data/cpi_all_items.csv"),
+  cancer_prevention_parameters = load_model_parameters("config/cancer_prevention_parameters.csv")
 ) {
   device_cost <- get_parameter_value(
     model_parameters, "iud_device_acquisition_cost_gpo"
@@ -408,6 +488,7 @@ compute_combined_strategy_cost <- function(
     societal_addon = 0,
     societal_total_cost = expected_total_cost,
     probability_device_placed = compute_probability_device_placed(model_parameters, "combined"),
+    expected_missed_cancer_prevention_cost = 0,
     expected_cost_per_referred_patient = expected_total_cost *
       compute_probability_device_placed(model_parameters, "combined")
   )
@@ -420,10 +501,15 @@ compute_combined_strategy_cost <- function(
 compute_strategy_costs <- function(
   model_parameters,
   price_index_table = load_price_index_table("data/cpi_medical_care.csv"),
-  all_items_price_index_table = load_price_index_table("data/cpi_all_items.csv")
+  all_items_price_index_table = load_price_index_table("data/cpi_all_items.csv"),
+  cancer_prevention_parameters = load_model_parameters("config/cancer_prevention_parameters.csv")
 ) {
   dplyr::bind_rows(
-    compute_standalone_strategy_cost(model_parameters, price_index_table, all_items_price_index_table),
-    compute_combined_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
+    compute_standalone_strategy_cost(
+      model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters
+    ),
+    compute_combined_strategy_cost(
+      model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters
+    )
   )
 }

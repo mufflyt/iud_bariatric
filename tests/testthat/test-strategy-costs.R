@@ -8,29 +8,65 @@ test_that("compute_probability_device_placed is 1 minus the loss-to-follow-up pr
   expect_equal(compute_probability_device_placed(model_parameters, "standalone"), 1 - 0.257)
 })
 
+test_that("compute_expected_missed_cancer_prevention_cost multiplies loss-to-follow-up, the IUD's absolute risk reduction, and the treatment cost", {
+  model_parameters <- test_model_parameters()
+  price_index_table <- test_price_index_table()
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
+  reference_year <- get_parameter_value(model_parameters, "reference_dollar_year")
+
+  loss_to_follow_up_probability <- 0.257
+  post_surgery_no_iud_risk <- 0.03 * 0.50
+  iud_absolute_risk_reduction <- post_surgery_no_iud_risk * (1 - 0.50)
+  treatment_cost <- adjust_for_inflation(34982.33, 2015, reference_year, price_index_table)
+  expected <- loss_to_follow_up_probability * iud_absolute_risk_reduction * treatment_cost
+
+  expect_equal(
+    compute_expected_missed_cancer_prevention_cost(model_parameters, cancer_prevention_parameters, price_index_table),
+    expected
+  )
+})
+
+test_that("only the standalone arm carries a missed-cancer-prevention cost, never the combined arm", {
+  # Combined placement is guaranteed (probability_device_placed = 1), so
+  # there is no lost-to-follow-up population to apply this cost to.
+  model_parameters <- test_model_parameters()
+  price_index_table <- test_price_index_table()
+  all_items_price_index_table <- test_all_items_price_index_table()
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
+  standalone_cost <- compute_standalone_strategy_cost(model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters)
+  combined_cost <- compute_combined_strategy_cost(model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters)
+
+  expect_gt(standalone_cost$expected_missed_cancer_prevention_cost, 0)
+  expect_equal(combined_cost$expected_missed_cancer_prevention_cost, 0)
+})
+
 test_that("standalone's probability_device_placed is below 1; combined's is exactly 1", {
   model_parameters <- test_model_parameters()
   price_index_table <- test_price_index_table()
   all_items_price_index_table <- test_all_items_price_index_table()
-  standalone_cost <- compute_standalone_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
-  combined_cost <- compute_combined_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
+  standalone_cost <- compute_standalone_strategy_cost(model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters)
+  combined_cost <- compute_combined_strategy_cost(model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters)
 
   expect_lt(standalone_cost$probability_device_placed, 1)
   expect_equal(combined_cost$probability_device_placed, 1)
 })
 
-test_that("expected_cost_per_referred_patient is expected_total_cost times probability_device_placed", {
+test_that("expected_cost_per_referred_patient is expected_total_cost times probability_device_placed, plus the missed-cancer-prevention cost", {
   model_parameters <- test_model_parameters()
   price_index_table <- test_price_index_table()
   all_items_price_index_table <- test_all_items_price_index_table()
-  standalone_cost <- compute_standalone_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
-  combined_cost <- compute_combined_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
+  standalone_cost <- compute_standalone_strategy_cost(model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters)
+  combined_cost <- compute_combined_strategy_cost(model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters)
 
   expect_equal(
     standalone_cost$expected_cost_per_referred_patient,
-    standalone_cost$expected_total_cost * standalone_cost$probability_device_placed
+    standalone_cost$expected_total_cost * standalone_cost$probability_device_placed +
+      standalone_cost$expected_missed_cancer_prevention_cost
   )
-  # combined's probability is 1, so this equals expected_total_cost exactly.
+  # combined's probability is 1 and it never has a missed-cancer-prevention
+  # cost, so this equals expected_total_cost exactly.
   expect_equal(combined_cost$expected_cost_per_referred_patient, combined_cost$expected_total_cost)
 })
 
@@ -38,8 +74,9 @@ test_that("compute_standalone_strategy_cost sums device + professional fee + off
   model_parameters <- test_model_parameters()
   price_index_table <- test_price_index_table()
   all_items_price_index_table <- test_all_items_price_index_table()
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
   standalone_cost <- compute_standalone_strategy_cost(
-    model_parameters, price_index_table, all_items_price_index_table
+    model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters
   )
 
   expect_equal(standalone_cost$device_cost, 568.50)
@@ -65,12 +102,13 @@ test_that("compute_combined_strategy_cost excludes the professional fee when the
   model_parameters <- test_model_parameters()
   price_index_table <- test_price_index_table()
   all_items_price_index_table <- test_all_items_price_index_table()
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
   toggled_parameters <- override_model_parameters(
     model_parameters,
     list(combined_requires_separate_professional_fee = FALSE)
   )
   combined_cost <- compute_combined_strategy_cost(
-    toggled_parameters, price_index_table, all_items_price_index_table
+    toggled_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters
   )
 
   expect_equal(combined_cost$professional_fee, 0)
@@ -93,12 +131,13 @@ test_that("compute_combined_strategy_cost includes the professional fee when the
   model_parameters <- test_model_parameters()
   price_index_table <- test_price_index_table()
   all_items_price_index_table <- test_all_items_price_index_table()
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
   toggled_parameters <- override_model_parameters(
     model_parameters,
     list(combined_requires_separate_professional_fee = TRUE)
   )
   combined_cost <- compute_combined_strategy_cost(
-    toggled_parameters, price_index_table, all_items_price_index_table
+    toggled_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters
   )
 
   # The combined arm's own insertion uses the FACILITY-setting fee (a
@@ -112,12 +151,13 @@ test_that("compute_combined_strategy_cost excludes the preop office visit when t
   model_parameters <- test_model_parameters()
   price_index_table <- test_price_index_table()
   all_items_price_index_table <- test_all_items_price_index_table()
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
   toggled_parameters <- override_model_parameters(
     model_parameters,
     list(combined_requires_preop_office_visit = FALSE)
   )
   combined_cost <- compute_combined_strategy_cost(
-    toggled_parameters, price_index_table, all_items_price_index_table
+    toggled_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters
   )
 
   expect_equal(combined_cost$office_visit_cost, 0)
@@ -127,8 +167,9 @@ test_that("compute_combined_strategy_cost includes the preop office visit when t
   model_parameters <- test_model_parameters()
   price_index_table <- test_price_index_table()
   all_items_price_index_table <- test_all_items_price_index_table()
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
   combined_cost <- compute_combined_strategy_cost(
-    model_parameters, price_index_table, all_items_price_index_table
+    model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters
   )
 
   expect_equal(combined_cost$office_visit_cost, 125.40)
@@ -138,8 +179,9 @@ test_that("combined arm's own insertion fee is lower than standalone's, reflecti
   model_parameters <- test_model_parameters()
   price_index_table <- test_price_index_table()
   all_items_price_index_table <- test_all_items_price_index_table()
-  standalone_cost <- compute_standalone_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
-  combined_cost <- compute_combined_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
+  standalone_cost <- compute_standalone_strategy_cost(model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters)
+  combined_cost <- compute_combined_strategy_cost(model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters)
 
   expect_lt(combined_cost$professional_fee, standalone_cost$professional_fee)
   expect_equal(combined_cost$professional_fee, standalone_cost$professional_fee * 0.4146)
@@ -154,8 +196,9 @@ test_that("only the combined arm carries the disposable-supply cost, never the s
   model_parameters <- test_model_parameters()
   price_index_table <- test_price_index_table()
   all_items_price_index_table <- test_all_items_price_index_table()
-  standalone_cost <- compute_standalone_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
-  combined_cost <- compute_combined_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
+  standalone_cost <- compute_standalone_strategy_cost(model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters)
+  combined_cost <- compute_combined_strategy_cost(model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters)
 
   expect_equal(standalone_cost$disposable_supply_cost, 0)
   expect_equal(combined_cost$disposable_supply_cost, 37.39)
@@ -164,6 +207,7 @@ test_that("only the combined arm carries the disposable-supply cost, never the s
 test_that("compute_postop_discussion_cost is discussion minutes times inflation-adjusted gynecologist wage", {
   model_parameters <- test_model_parameters()
   all_items_price_index_table <- test_all_items_price_index_table()
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
   reference_year <- get_parameter_value(model_parameters, "reference_dollar_year")
 
   expected <- 25 * adjust_for_inflation(2.347, 2025, reference_year, all_items_price_index_table)
@@ -180,8 +224,9 @@ test_that("only the combined arm carries the postop-discussion cost, never the s
   model_parameters <- test_model_parameters()
   price_index_table <- test_price_index_table()
   all_items_price_index_table <- test_all_items_price_index_table()
-  standalone_cost <- compute_standalone_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
-  combined_cost <- compute_combined_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
+  standalone_cost <- compute_standalone_strategy_cost(model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters)
+  combined_cost <- compute_combined_strategy_cost(model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters)
 
   expect_equal(standalone_cost$postop_discussion_cost, 0)
   expect_gt(combined_cost$postop_discussion_cost, 0)
@@ -206,8 +251,9 @@ test_that("both arms carry the identical expected perforation cost, since no set
   model_parameters <- test_model_parameters()
   price_index_table <- test_price_index_table()
   all_items_price_index_table <- test_all_items_price_index_table()
-  standalone_cost <- compute_standalone_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
-  combined_cost <- compute_combined_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
+  standalone_cost <- compute_standalone_strategy_cost(model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters)
+  combined_cost <- compute_combined_strategy_cost(model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters)
 
   expect_equal(standalone_cost$expected_perforation_cost, combined_cost$expected_perforation_cost)
 })
@@ -215,6 +261,7 @@ test_that("both arms carry the identical expected perforation cost, since no set
 test_that("compute_scheduling_coordination_cost is coordination minutes times inflation-adjusted scheduler wage", {
   model_parameters <- test_model_parameters()
   all_items_price_index_table <- test_all_items_price_index_table()
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
   reference_year <- get_parameter_value(model_parameters, "reference_dollar_year")
 
   expected <- 60 * adjust_for_inflation(0.368, 2025, reference_year, all_items_price_index_table)
@@ -231,8 +278,9 @@ test_that("only the combined arm carries a scheduling-coordination cost", {
   model_parameters <- test_model_parameters()
   price_index_table <- test_price_index_table()
   all_items_price_index_table <- test_all_items_price_index_table()
-  standalone_cost <- compute_standalone_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
-  combined_cost <- compute_combined_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
+  standalone_cost <- compute_standalone_strategy_cost(model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters)
+  combined_cost <- compute_combined_strategy_cost(model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters)
 
   expect_equal(standalone_cost$scheduling_coordination_cost, 0)
   expect_gt(combined_cost$scheduling_coordination_cost, 0)
@@ -246,8 +294,9 @@ test_that("combined arm's higher expulsion rate produces a higher expected repla
   model_parameters <- test_model_parameters()
   price_index_table <- test_price_index_table()
   all_items_price_index_table <- test_all_items_price_index_table()
-  standalone_cost <- compute_standalone_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
-  combined_cost <- compute_combined_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
+  standalone_cost <- compute_standalone_strategy_cost(model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters)
+  combined_cost <- compute_combined_strategy_cost(model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters)
 
   expect_gt(combined_cost$expected_replacement_cost, standalone_cost$expected_replacement_cost)
 })
@@ -256,7 +305,8 @@ test_that("only the standalone arm carries a societal patient-time add-on", {
   model_parameters <- test_model_parameters()
   price_index_table <- test_price_index_table()
   all_items_price_index_table <- test_all_items_price_index_table()
-  strategy_costs <- compute_strategy_costs(model_parameters, price_index_table, all_items_price_index_table)
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
+  strategy_costs <- compute_strategy_costs(model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters)
 
   standalone_row <- strategy_costs[strategy_costs$strategy == "standalone", ]
   combined_row <- strategy_costs[strategy_costs$strategy == "combined", ]
@@ -271,7 +321,8 @@ test_that("compute_strategy_costs returns exactly one row per strategy", {
   model_parameters <- test_model_parameters()
   price_index_table <- test_price_index_table()
   all_items_price_index_table <- test_all_items_price_index_table()
-  strategy_costs <- compute_strategy_costs(model_parameters, price_index_table, all_items_price_index_table)
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
+  strategy_costs <- compute_strategy_costs(model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters)
 
   expect_equal(sort(strategy_costs$strategy), c("combined", "standalone"))
   expect_equal(nrow(strategy_costs), 2)
@@ -285,6 +336,7 @@ test_that("INDEPENDENT CONFIRMATION: base-case incremental cost matches a from-s
   model_parameters <- test_model_parameters()
   price_index_table <- test_price_index_table()
   all_items_price_index_table <- test_all_items_price_index_table()
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
   reference_year <- get_parameter_value(model_parameters, "reference_dollar_year")
 
   device <- get_parameter_value(model_parameters, "iud_device_acquisition_cost_gpo")
@@ -321,7 +373,7 @@ test_that("INDEPENDENT CONFIRMATION: base-case incremental cost matches a from-s
     expulsion_combined * replacement_encounter_cost +
     perforation_cost
 
-  strategy_costs <- compute_strategy_costs(model_parameters, price_index_table, all_items_price_index_table)
+  strategy_costs <- compute_strategy_costs(model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters)
 
   expect_equal(
     strategy_costs$expected_total_cost[strategy_costs$strategy == "standalone"],
@@ -337,9 +389,25 @@ test_that("INDEPENDENT CONFIRMATION: base-case incremental cost matches a from-s
   )
 
   loss_to_follow_up_probability <- get_parameter_value(model_parameters, "standalone_loss_to_follow_up_probability")
+
+  cancer_lifetime_risk <- get_parameter_value(
+    cancer_prevention_parameters, "endometrial_cancer_lifetime_risk_usual_care_bmi40"
+  )
+  cancer_surgery_hazard_ratio <- get_parameter_value(
+    cancer_prevention_parameters, "bariatric_surgery_endometrial_cancer_hazard_ratio"
+  )
+  cancer_iud_incidence_ratio <- get_parameter_value(
+    cancer_prevention_parameters, "iud_endometrial_cancer_incidence_ratio"
+  )
+  post_surgery_no_iud_risk <- cancer_lifetime_risk * cancer_surgery_hazard_ratio
+  iud_absolute_risk_reduction <- post_surgery_no_iud_risk * (1 - cancer_iud_incidence_ratio)
+  cancer_treatment_cost <- adjust_for_inflation(34982.33, 2015, reference_year, price_index_table)
+  expected_missed_cancer_prevention_cost <- loss_to_follow_up_probability *
+    iud_absolute_risk_reduction * cancer_treatment_cost
+
   expect_equal(
     strategy_costs$expected_cost_per_referred_patient[strategy_costs$strategy == "standalone"],
-    expected_standalone * (1 - loss_to_follow_up_probability)
+    expected_standalone * (1 - loss_to_follow_up_probability) + expected_missed_cancer_prevention_cost
   )
   expect_equal(
     strategy_costs$expected_cost_per_referred_patient[strategy_costs$strategy == "combined"],

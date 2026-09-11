@@ -55,10 +55,20 @@ SENSITIVITY_PARAMETER_NAMES <- c(
 #' @param price_index_table Tibble from [load_price_index_table()].
 #' @param all_items_price_index_table Tibble from [load_price_index_table()]
 #'   pointed at `data/cpi_all_items.csv`.
+#' @param cancer_prevention_parameters Tibble from
+#'   [load_model_parameters()] pointed at
+#'   `config/cancer_prevention_parameters.csv`.
 #' @return Numeric scalar: combined's `expected_total_cost` minus
 #'   standalone's.
-compute_incremental_gap <- function(model_parameters, price_index_table, all_items_price_index_table) {
-  strategy_costs <- compute_strategy_costs(model_parameters, price_index_table, all_items_price_index_table)
+compute_incremental_gap <- function(
+  model_parameters,
+  price_index_table,
+  all_items_price_index_table,
+  cancer_prevention_parameters = load_model_parameters("config/cancer_prevention_parameters.csv")
+) {
+  strategy_costs <- compute_strategy_costs(
+    model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters
+  )
   comparison <- compare_combined_vs_standalone(strategy_costs)
 
   comparison$incremental_cost_vs_standalone[comparison$strategy == "combined"]
@@ -72,6 +82,9 @@ compute_incremental_gap <- function(model_parameters, price_index_table, all_ite
 #'   pointed at `data/cpi_all_items.csv`.
 #' @param parameter_names Character vector of parameter names to sweep;
 #'   defaults to [SENSITIVITY_PARAMETER_NAMES].
+#' @param cancer_prevention_parameters Tibble from
+#'   [load_model_parameters()] pointed at
+#'   `config/cancer_prevention_parameters.csv`.
 #' @return A tibble with one row per parameter: `parameter`, `low_value`,
 #'   `high_value`, `base_case_gap`, `gap_at_low`, `gap_at_high`, `swing`
 #'   (`abs(gap_at_high - gap_at_low)`), sorted by `swing` descending (the
@@ -80,9 +93,12 @@ run_one_way_sensitivity <- function(
   model_parameters,
   price_index_table,
   all_items_price_index_table,
-  parameter_names = SENSITIVITY_PARAMETER_NAMES
+  parameter_names = SENSITIVITY_PARAMETER_NAMES,
+  cancer_prevention_parameters = load_model_parameters("config/cancer_prevention_parameters.csv")
 ) {
-  base_case_gap <- compute_incremental_gap(model_parameters, price_index_table, all_items_price_index_table)
+  base_case_gap <- compute_incremental_gap(
+    model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters
+  )
 
   results <- purrr::map_dfr(parameter_names, function(parameter_name) {
     row <- model_parameters |> dplyr::filter(.data$parameter == .env$parameter_name)
@@ -107,8 +123,12 @@ run_one_way_sensitivity <- function(
       model_parameters, stats::setNames(base::list(high_value), parameter_name)
     )
 
-    gap_at_low <- compute_incremental_gap(low_parameters, price_index_table, all_items_price_index_table)
-    gap_at_high <- compute_incremental_gap(high_parameters, price_index_table, all_items_price_index_table)
+    gap_at_low <- compute_incremental_gap(
+      low_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters
+    )
+    gap_at_high <- compute_incremental_gap(
+      high_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters
+    )
 
     tibble::tibble(
       parameter = parameter_name,

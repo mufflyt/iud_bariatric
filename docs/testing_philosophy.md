@@ -235,3 +235,26 @@ scripted `sed` substitution.
   (off by $422, since the wrong probability multiplier flows straight
   into that derived cost).
 - **Reverted, confirmed green:** all tests pass again.
+
+**2026-09-11 -- missed cancer-prevention cost's risk-reduction term
+(`R/strategy_costs.R`, `compute_expected_missed_cancer_prevention_cost()`).**
+
+Added when standalone's loss-to-follow-up gap was chained through to a
+real downstream outcome (endometrial cancer, this population's actual
+stake, in place of the postpartum-LARC literature's unintended-pregnancy
+chain), reusing `R/cancer_prevention.R`'s own functions directly rather
+than re-deriving the risk arithmetic. Planted defect: used the full
+post-surgery-without-IUD cancer risk instead of the IUD's own absolute
+risk reduction on top of it (i.e. dropped
+`compute_iud_absolute_risk_reduction()`'s `(1 - iud_incidence_ratio)`
+factor), via a scripted `sed` substitution -- a realistic conceptual
+mistake (confusing "risk without the IUD" with "risk attributable to
+missing the IUD specifically").
+
+- **Red:** 2 tests failed -- the new unit test on
+  `compute_expected_missed_cancer_prevention_cost()` directly (off by
+  exactly $89.60, the size of crediting the IUD with preventing its own
+  full post-surgery risk instead of just its own marginal share of it)
+  and the base-case `INDEPENDENT CONFIRMATION` test's assertion on
+  `expected_cost_per_referred_patient`.
+- **Reverted, confirmed green:** all tests pass again.

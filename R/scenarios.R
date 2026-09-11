@@ -74,12 +74,16 @@ build_scenario_definitions <- function(model_parameters) {
 #' @param price_index_table Tibble from [load_price_index_table()].
 #' @param all_items_price_index_table Tibble from [load_price_index_table()]
 #'   pointed at `data/cpi_all_items.csv`.
+#' @param cancer_prevention_parameters Tibble from
+#'   [load_model_parameters()] pointed at
+#'   `config/cancer_prevention_parameters.csv`.
 #' @return A tibble binding `strategy_costs` for every scenario, with a
 #'   leading `scenario` column and the scenario's `provisional` flag.
 run_scenario_analysis <- function(
   model_parameters,
   price_index_table = load_price_index_table("data/cpi_medical_care.csv"),
-  all_items_price_index_table = load_price_index_table("data/cpi_all_items.csv")
+  all_items_price_index_table = load_price_index_table("data/cpi_all_items.csv"),
+  cancer_prevention_parameters = load_model_parameters("config/cancer_prevention_parameters.csv")
 ) {
   scenario_definitions <- build_scenario_definitions(model_parameters)
 
@@ -95,7 +99,7 @@ run_scenario_analysis <- function(
       model_parameters, scenario_definition$overrides
     )
     strategy_costs <- compute_strategy_costs(
-      scenario_parameters, price_index_table, all_items_price_index_table
+      scenario_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters
     )
 
     strategy_costs |>

@@ -46,13 +46,22 @@ coverage_sentence <- base::paste0(
   "already anesthetized, so it is treated as guaranteed (probability_device_placed = 1). ",
   "A real fraction of standalone patients never return for their scheduled visit at all ",
   "(probability_device_placed = ", base::round(standalone_row$probability_device_placed, 3),
-  "), so per patient REFERRED to each strategy (not per patient who completes it), ",
-  "standalone costs an estimated $", base::round(standalone_row$expected_cost_per_referred_patient, 2),
+  "), and unlike the postpartum-LARC literature's usual choice to chain that loss to an ",
+  "unintended pregnancy, this population's actual stake is chained to endometrial cancer ",
+  "instead (expected_missed_cancer_prevention_cost = $",
+  base::round(standalone_row$expected_missed_cancer_prevention_cost, 2),
+  " per referred standalone patient). Even counting that real cost, per patient REFERRED to ",
+  "each strategy (not per patient who completes it), standalone costs an estimated $",
+  base::round(standalone_row$expected_cost_per_referred_patient, 2),
   " vs. combined's $", base::round(combined_row$expected_cost_per_referred_patient, 2),
-  " -- a WIDER gap in standalone's favor than the per-completed-visit comparison above, ",
-  "because a missed visit costs nothing in this model. That is precisely the problem: ",
-  "standalone's apparent extra savings here come from some patients never getting an ",
-  "IUD at all, not from a genuinely cheaper delivery of the same protection. Read the two ",
+  " -- still a WIDER gap in standalone's favor than the per-completed-visit comparison above, ",
+  "because the avoided-visit savings ($",
+  base::round(
+    standalone_row$expected_total_cost * (1 - standalone_row$probability_device_placed), 2
+  ),
+  ") outweighs the added cancer-risk cost. That is precisely the problem: standalone's ",
+  "apparent extra savings here come partly from some patients never getting an IUD at all, ",
+  "not entirely from a genuinely cheaper delivery of the same protection. Read the two ",
   "numbers together, not in isolation."
 )
 

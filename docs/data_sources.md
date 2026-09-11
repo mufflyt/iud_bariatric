@@ -1106,14 +1106,117 @@ combined 1.0) and `expected_cost_per_referred_patient` reports what that
 implies for cost-per-patient-referred, alongside, not instead of, the
 existing per-completed-visit cost.
 
-**The result is genuinely counterintuitive and worth stating plainly:**
-per referred patient, standalone's advantage WIDENS, from $868.63-vs-
-$1,359.41 (per completed visit) to $645.39-vs-$1,359.41 (per referred
-patient) -- because in this model, a missed visit costs nothing. That
-is not a point in standalone's favor; it is the mechanism by which an
-unpriced effectiveness gap can look like a cost advantage if the two
-numbers are not read together. `analysis/01_base_case.R` now prints both
-explicitly for this reason (see `tables/coverage_sentence.txt`).
+**The result was genuinely counterintuitive at the time this was built,
+and worth stating plainly:** per referred patient, standalone's
+advantage WIDENED, from $868.63-vs-$1,359.41 (per completed visit) to
+$645.39-vs-$1,359.41 (per referred patient) -- because in this model, a
+missed visit costs nothing directly. That was not a point in
+standalone's favor; it was the mechanism by which an unpriced
+effectiveness gap can look like a cost advantage if the two numbers are
+not read together. `analysis/01_base_case.R` printed both explicitly for
+this reason. See "Chaining loss to follow-up to a real downstream
+outcome" below for how this was later revised once a real downstream
+cost was found and built: the gap narrows to $735.01-vs-$1,359.41, still
+counterintuitively favoring standalone on paper but less starkly.
+
+## Chaining loss to follow-up to a real downstream outcome (added 2026-09-11)
+
+Prompted by a direct request to look at how other literature addresses
+this exact structural problem -- a strategy that guarantees placement
+during an existing admission (immediate postpartum LARC; here, combined
+bariatric-surgery placement) vs. one requiring a separate,
+loss-to-follow-up-prone visit (interval LARC; here, standalone) --
+before building anything further.
+
+**What the literature actually does, verified directly, not assumed.**
+Washington CI, Jamshidi R, Thung SF, Nayeri UA, Caughey AB, Werner EF,
+"Timing of postpartum intrauterine device placement: a cost-effectiveness
+analysis," *Fertil Steril* 2015;103(1):131-137, doi:10.1016/
+j.fertnstert.2014.09.032, PMID 25439838 (already indirectly connected to
+this project: Dottino et al. 2016 cites this same paper for its own IUD
+cost inputs). Directly verified via the Europe PMC abstract, 2026-09-11:
+a decision-analysis model finding immediate postpartum IUD placement
+prevented 88 unintended pregnancies per 1,000 women over a 2-year
+horizon and was the dominant strategy (cost savings of $282,540 and 10
+QALYs gained per 1,000 women). Critically: "The model is most sensitive
+to the cost of an undesired pregnancy" -- the downstream outcome, not
+the procedural costs, drove the result. Gariepy AM, Duffy JY, Xu X,
+"Cost-Effectiveness of Immediate Compared With Delayed Postpartum
+Etonogestrel Implant Insertion," *Obstet Gynecol* 2015;126(1):47-55,
+directly verified via the PMC full text (PMC4526123), builds the
+identical structure for the implant: 35% loss to follow-up at the
+postpartum visit, 27% of attendees then decline the device anyway, a
+weighted-average contraceptive-failure rate across whatever method
+non-completers end up using, and a pregnancy-cost breakdown ($8,907
+expected cost: $11,871-$24,045 live birth depending on insurance, $973
+miscarriage, $4,906 ectopic, $788 abortion). Neither paper treats loss
+to follow-up as a side metric; both chain it to a real, priced adverse
+outcome.
+
+**This project's population has a different real stake, so a different
+outcome is chained here.** This device also protects against
+endometrial cancer (see "Cancer-prevention estimate" below); a
+bariatric-surgery patient is not specifically trying to avoid pregnancy
+in the way a postpartum patient is, so unintended pregnancy is not the
+relevant downstream consequence for this population the way it is for
+the postpartum-LARC literature. Endometrial cancer is.
+
+**Built directly on `R/cancer_prevention.R`'s own machinery, not
+re-derived.** `compute_expected_missed_cancer_prevention_cost()` reuses
+`compute_post_surgery_baseline_risk()` and
+`compute_iud_absolute_risk_reduction()` from that module, so the two
+modules cannot silently drift apart. New parameters:
+
+- `endometrial_cancer_death_risk_usual_care_bmi40` = 0.014 (and, for
+  symmetry, `_bmi30` = 0.007), added to
+  `config/cancer_prevention_parameters.csv`. Source: the same Dottino et
+  al. 2016 results text already used for
+  `endometrial_cancer_lifetime_risk_usual_care_bmi40`: "there is a 3%
+  lifetime probability of developing and a 1.4% probability of dying
+  from endometrial cancer." Used to derive a conditional mortality-given-
+  diagnosis ratio (0.014 / 0.03 = 0.4667), deliberately NOT adjusted by
+  `bariatric_surgery_endometrial_cancer_hazard_ratio` (Schauer et al.
+  2019): that hazard ratio is specifically an incidence hazard ratio,
+  with no evidence it also applies to prognosis once diagnosed.
+- `endometrial_cancer_treatment_cost` = $34,982.33 (2015 dollars), added
+  to `config/model_parameters.csv`. Derived from Dottino et al. 2016's
+  Table 2 (PDF read directly), itself sourced from Yabroff KR, Lamont EB,
+  Mariotto A, Warren JL, Topor M, Meekins A, et al., "Cost of care for
+  elderly cancer patients in the United States," *J Natl Cancer Inst*
+  2008;100:630-641: first 12 months from diagnosis $20,491.74, ongoing
+  annual cost $1,153.83, last 12 months of life $31,051.26. This
+  parameter = first-year cost + (mortality-given-diagnosis ratio x
+  last-year-of-life cost) = 20491.74 + (0.4667 x 31051.26) = $34,982.33.
+  DELIBERATELY EXCLUDES the ongoing-annual-care component: Dottino's own
+  Markov model handles this via annual-cycle simulation to age 100,
+  which this project's closed-form expected-value calculation cannot
+  replicate without inventing a specific number of survivorship years,
+  so it is omitted rather than guessed -- a flagged, conservative
+  (understated) simplification, not a hidden one.
+
+**The formula:** `expected_missed_cancer_prevention_cost` =
+`standalone_loss_to_follow_up_probability` x
+`compute_iud_absolute_risk_reduction(post_surgery_no_iud_risk,
+iud_endometrial_cancer_incidence_ratio)` x
+`endometrial_cancer_treatment_cost` (inflation-adjusted). Added to
+`expected_cost_per_referred_patient` for standalone only; always 0 for
+combined, since `probability_device_placed = 1` there means no
+lost-to-follow-up population exists to apply this cost to.
+
+**Effect on the model's numbers:** `expected_missed_cancer_prevention_cost`
+= $89.62 per referred standalone patient. `expected_cost_per_referred_
+patient` moves from $645.39 to $735.01 for standalone (combined
+unchanged at $1,359.41, and `base_case_gap` -- $490.78 -- is untouched,
+since this only affects the per-referred-patient metric, not
+`expected_total_cost`). Even after this real cost, standalone's
+per-referred-patient number ($735.01) remains below its per-completed-
+visit number ($868.63): the avoided-visit savings (`expected_total_cost
+x (1 - probability_device_placed)` = $223.24) still outweighs the added
+cancer-risk cost ($89.62). This is an honest, checkable result, not a
+predetermined one -- the numbers say standalone's apparent extra
+savings come partly, not entirely, from missed placements, and the
+model reports that ratio directly rather than asserting a conclusion
+either way. Mutation-tested: see `docs/testing_philosophy.md`.
 
 ## Cancer-prevention estimate (added 2026-09-10)
 

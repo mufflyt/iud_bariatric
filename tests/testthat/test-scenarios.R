@@ -12,13 +12,18 @@ test_that("base_case scenario has no overrides and reproduces compute_strategy_c
   model_parameters <- test_model_parameters()
   price_index_table <- test_price_index_table()
   all_items_price_index_table <- test_all_items_price_index_table()
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
 
   scenario_definitions <- build_scenario_definitions(model_parameters)
   expect_equal(scenario_definitions$base_case$overrides, list())
 
-  scenario_results <- run_scenario_analysis(model_parameters, price_index_table, all_items_price_index_table)
+  scenario_results <- run_scenario_analysis(
+    model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters
+  )
   base_case_rows <- scenario_results[scenario_results$scenario == "base_case", ]
-  direct_rows <- compute_strategy_costs(model_parameters, price_index_table, all_items_price_index_table)
+  direct_rows <- compute_strategy_costs(
+    model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters
+  )
 
   expect_equal(
     base_case_rows$expected_total_cost[base_case_rows$strategy == "standalone"],
@@ -57,8 +62,11 @@ test_that("medicaid_illustrative and base_case combined arms both pay a separate
   model_parameters <- test_model_parameters()
   price_index_table <- test_price_index_table()
   all_items_price_index_table <- test_all_items_price_index_table()
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
 
-  scenario_results <- run_scenario_analysis(model_parameters, price_index_table, all_items_price_index_table)
+  scenario_results <- run_scenario_analysis(
+    model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters
+  )
   medicaid_combined <- scenario_results[
     scenario_results$scenario == "medicaid_illustrative" & scenario_results$strategy == "combined",
   ]
@@ -79,8 +87,11 @@ test_that("run_scenario_analysis returns 2 scenarios x 2 strategies = 4 rows", {
   model_parameters <- test_model_parameters()
   price_index_table <- test_price_index_table()
   all_items_price_index_table <- test_all_items_price_index_table()
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
 
-  scenario_results <- run_scenario_analysis(model_parameters, price_index_table, all_items_price_index_table)
+  scenario_results <- run_scenario_analysis(
+    model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters
+  )
   expect_equal(nrow(scenario_results), 4)
 })
 
@@ -91,6 +102,7 @@ test_that("INDEPENDENT CONFIRMATION: medicaid_illustrative standalone cost match
   model_parameters <- test_model_parameters()
   price_index_table <- test_price_index_table()
   all_items_price_index_table <- test_all_items_price_index_table()
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
   reference_year <- get_parameter_value(model_parameters, "reference_dollar_year")
 
   device <- get_parameter_value(model_parameters, "iud_device_acquisition_cost_gpo")
@@ -111,7 +123,9 @@ test_that("INDEPENDENT CONFIRMATION: medicaid_illustrative standalone cost match
     failure_probability * added_or_cost +
     perforation_cost
 
-  scenario_results <- run_scenario_analysis(model_parameters, price_index_table, all_items_price_index_table)
+  scenario_results <- run_scenario_analysis(
+    model_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters
+  )
   actual_standalone <- scenario_results[
     scenario_results$scenario == "medicaid_illustrative" & scenario_results$strategy == "standalone",
   ]

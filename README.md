@@ -517,14 +517,50 @@ assumes equal effectiveness by design) does not belong folding into a
 single dollar figure, so it's reported as its own number instead:
 `probability_device_placed` (standalone 0.743, combined 1.0) and
 `expected_cost_per_referred_patient` (cost per patient REFERRED to a
-strategy, not per patient who completes it). At base case, this actually
-WIDENS the standalone advantage on paper -- $645.39 vs. combined's
-$1,359.41, wider than the $868.63-vs-$1,359.41 per-completed-visit gap
-above -- because a missed visit costs nothing in this model. That's the
-point worth sitting with, not celebrating: standalone's extra apparent
-savings come from some patients never getting an IUD at all, not from a
-genuinely cheaper delivery of the same protection. `Rscript
-analysis/01_base_case.R` prints both numbers together for exactly this
+strategy, not per patient who completes it). At base case (before the
+missed-cancer-prevention cost below was added), this WIDENED the
+standalone advantage on paper -- $645.39 vs. combined's $1,359.41, wider
+than the $868.63-vs-$1,359.41 per-completed-visit gap above -- because a
+missed visit costs nothing directly in this model.
+
+Mutation-tested; see `docs/testing_philosophy.md`.
+
+## Chaining loss to follow-up to a real downstream outcome
+
+Asked to look at how other literature handles exactly this structural
+problem (a strategy that guarantees placement during an existing
+admission vs. one requiring a separate, loss-to-follow-up-prone visit).
+The immediate-vs-interval-postpartum-LARC literature has studied this
+directly, and doesn't treat loss to follow-up as a side metric the way
+the section above did: Washington et al. 2015 (*Fertil Steril*
+103(1):131-137) and Gariepy et al. 2015 (*Obstet Gynecol* 126(1):47-55)
+both build a full decision tree chaining a missed visit through to
+contraceptive failure and unintended pregnancy, with Washington's own
+finding that results are "most sensitive to the cost of an undesired
+pregnancy" -- the downstream outcome, not the procedural costs, drives
+their result.
+
+This population's actual stake is different: this device also protects
+against endometrial cancer (see "Cancer-prevention estimate" below), so
+that's the outcome chained here instead of pregnancy.
+`endometrial_cancer_treatment_cost` ($34,982.33, 2015 dollars, derived
+from Dottino et al. 2016's Table 2 cost-of-care figures via a
+conditional mortality-given-diagnosis ratio: first-year cost + [death
+risk / lifetime risk] x last-year-of-life cost, deliberately excluding
+ongoing survivorship-care costs as a conservative simplification) is
+multiplied by `standalone_loss_to_follow_up_probability` and the IUD's
+own absolute risk reduction (reused directly from
+`R/cancer_prevention.R`'s own functions, not re-derived) to get
+`expected_missed_cancer_prevention_cost`: $89.62 per referred standalone
+patient.
+
+**Even counting this real cost, standalone's per-referred-patient
+number is still below its per-completed-visit number** -- $735.01 vs.
+$868.63 -- because the avoided-visit savings ($223.24, from `expected_
+total_cost x (1 - probability_device_placed)`) outweighs the added
+cancer-risk cost. Standalone's apparent extra savings come PARTLY, not
+entirely, from some patients never getting an IUD at all. `Rscript
+analysis/01_base_case.R` prints all of this together for exactly this
 reason.
 
 Mutation-tested; see `docs/testing_philosophy.md`.
