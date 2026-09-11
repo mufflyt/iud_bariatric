@@ -174,3 +174,26 @@ behavior) via a scripted Python substitution.
   CONFIRMATION` test (off by exactly $68, the size of the missing ratio's
   effect).
 - **Reverted, confirmed green:** all tests pass again.
+
+**2026-09-11 -- combined arm's preop-office-visit toggle
+(`R/strategy_costs.R`, `compute_combined_strategy_cost()`).**
+
+Added alongside the new preop-consent-visit feature (borrowed from the
+sibling `emb_colonoscopy` project's `combined_requires_preop_office_visit`
+pattern: a patient cannot consent while already under anesthesia for a
+different procedure, so the gynecologist needs a separate earlier
+encounter). Planted defect: read `combined_requires_separate_
+professional_fee` (a different, similarly-structured toggle) instead of
+`combined_requires_preop_office_visit`, via a scripted Python
+substitution -- a realistic copy-paste mistake between two adjacent
+boolean toggles.
+
+- **Red:** the dedicated "excludes the preop office visit when that
+  toggle is FALSE" test failed (off by exactly $125.40, the full preop
+  visit cost -- the mutated code read the OTHER toggle, which that test
+  left at its default TRUE, so the visit cost was wrongly still charged).
+  Every other test stayed green, since both toggles happened to share the
+  same default value everywhere else they're exercised -- this is exactly
+  why a test targeting each toggle independently, not just the base case,
+  was needed to catch this class of bug.
+- **Reverted, confirmed green:** all tests pass again.

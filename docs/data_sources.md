@@ -612,11 +612,12 @@ in the impossible best case where 100% of perforations were caught
 immediately and managed at zero marginal cost. Against the base case's combined-arm cost disadvantage at the time this
 was computed ($196.39), that was a 19.7% reduction at most, leaving a
 $157.68 disadvantage even in that best case -- nowhere close to
-reversing the model's conclusion. That gap has since moved twice more
-("Two-surgeon coordination cost" widened it to $335.29, then "Facility-
-setting professional fee" corrected it back down to $304.73), and the
-same logic scales the same way against the current gap: $38.71 is a
-12.7% cut at most, leaving $266.02. This mechanism is real but
+reversing the model's conclusion. That gap has since moved three times
+more ("Two-surgeon coordination cost" widened it to $335.29, "Facility-
+setting professional fee" corrected it down to $304.73, "Preop consent
+visit for the combined arm" widened it again to $430.13), and the same
+logic scales the same way against the current gap: $38.71 is a 9.0% cut
+at most, leaving $391.42. This mechanism is real but
 quantitatively too small to matter here, independent of the exact
 percentage or which version of the gap it's checked against, which is
 why it is not built into the cost engine: the verification gap turned
@@ -667,9 +668,10 @@ the high value. `swing = abs(gap_at_high - gap_at_low)` ranks parameters
 by how much they move the headline result.
 
 **Result (2026-09-11, current base case, after closing the
-`iud_expulsion_probability_combined` gap described below, AND after both
-"Two-surgeon coordination cost" and "Facility-setting professional fee"
-below moved `base_case_gap` from $196.39 -> $335.29 -> $304.73):**
+`iud_expulsion_probability_combined` gap described below, AND after
+"Two-surgeon coordination cost," "Facility-setting professional fee," and
+"Preop consent visit for the combined arm" below moved `base_case_gap`
+from $196.39 -> $335.29 -> $304.73 -> $430.13):**
 `direct_room_cost_per_minute` (swing $328.43) and `combined_arm_
 added_minutes` (swing $318.48) dominate, followed by `iud_expulsion_
 probability_combined` ($184.75), `anesthesia_cost_per_minute` ($77.00),
@@ -728,12 +730,14 @@ under "Clinical precedent," for the fix: reading the full text directly
 and computing an exact Clopper-Pearson 95% CI on the paper's own 7/43 raw
 proportion (6.81%-30.70%). This parameter ranks third (swing $184.75) --
 and, reassuringly, even at the low end of that wide interval, the
-combined arm still costs more than standalone: gap_at_low is $231.32
-against the current $304.73 base case (it was $123 against the $196.39
-base case before the professional-fee/coordination corrections, and
-$261.90 against the $335.29 gap in between) -- the model's directional
-conclusion has never depended on exactly where within this range the
-true rate falls, across any version of the base case. `patient_time_
+combined arm still costs more than standalone: gap_at_low is $356.70
+against the current $430.13 base case ($123 against the original
+$196.39 base case, $261.90 against $335.29, $231.32 against $304.73 --
+four different base-case values across this session, and the low end of
+this interval has stayed positive against every one of them) -- the
+model's directional conclusion has never depended on exactly where
+within this range the true rate falls, across any version of the base
+case. `patient_time_
 opportunity_cost_per_visit` remains excluded from the ranking for the
 same reason this parameter used to be: no sourced low/high range yet.
 
@@ -803,8 +807,9 @@ real staffing fact rather than from any new literature source. See "One-way
 sensitivity analysis" above for how this shift did (and, mechanically,
 could not) affect other parameters' swing values. Mutation-tested: see
 `docs/testing_philosophy.md`. (The $116.08 figure itself was corrected
-the same day -- see "Facility-setting professional fee" next -- so the
-gap now stands at $304.73, not $335.29.)
+the same day, and a preop-visit cost was added the day after -- see
+"Facility-setting professional fee" and "Preop consent visit for the
+combined arm" next -- so the gap now stands at $430.13, not $335.29.)
 
 ## Facility-setting professional fee (added 2026-09-11)
 
@@ -897,13 +902,60 @@ means this project cannot replicate that exact method; the RVU-ratio
 approach here is the closest available substitute, not an equally strong
 one.
 
+**Effect on the model's headline result, at the time this was built:**
+the base case gap moved from $335.29 to $304.73 -- standalone unchanged
+at $868.63; combined fell from $1,203.92 to $1,173.36 (the $67.96
+professional-fee reduction outweighing the $37.39 supply-cost addition).
+See "One-way sensitivity analysis" above for how `iud_insertion_
+professional_fee`'s own swing changed as a direct, checkable consequence
+of this fix. Mutation-tested: see `docs/testing_philosophy.md`. (A preop
+consent-visit cost was added the following day -- see next -- so the
+gap now stands at $430.13, not $304.73.)
+
+## Preop consent visit for the combined arm (added 2026-09-11)
+
+Prompted by the user asking to survey what else could be borrowed from
+the sibling `emb_colonoscopy` project (following the coordination-cost
+and facility-fee borrows above). Confirmed by reading that project's
+`config/model_parameters.csv` directly: its structurally identical
+combined arm (endometrial biopsy performed during colonoscopy) charges a
+separate preop office visit, via a toggle named -- identically --
+`combined_requires_preop_office_visit` (TRUE by default), on the
+reasoning that a patient cannot meaningfully consent to a procedure while
+already under anesthesia for a different one, so the consenting
+physician needs their own encounter on an earlier date. This project's
+combined arm charged $0 for an office visit before this fix -- a real
+gap, not a deliberate exclusion, once "Two surgeons, real coordination
+cost" above established that the gynecologist (not the bariatric
+surgeon) is the one who needs to counsel and consent the patient.
+
+**New parameters**, mirroring the sibling's exactly (same toggle name;
+cost parameter renamed to this project's `iud_` prefix convention):
+`combined_requires_preop_office_visit` (TRUE, structural,
+`evidence_tier = D`) and `iud_preop_office_visit_cost` ($125.40, CPT
+99214, `evidence_tier = B`). The cost figure is reused directly from the
+sibling project's own verified extraction
+(`dnc_preop_clinic_visit_cost`), not re-pulled: CMS Physician & Other
+Practitioners by Provider and Service, 2024, CPT 99214, filtered to
+`Rndrng_Prvdr_Type = 'Obstetrics & Gynecology'` (live API query,
+7,642 provider-service rows, 515,741 observed services). Level 4 (99214,
+moderate complexity), not the 99213 `office_visit_em_cost` uses for
+standalone's own routine insertion visit, reflecting that this is
+specifically a surgical-consent/risk-discussion encounter. Checked
+directly, 2026-09-11: CPT 58300's own CMS global-surgery period is "XXX"
+(RVU26C, GLOB DAYS field) -- the global-surgery concept does not apply
+to this code at all, so no bundling rule folds an earlier-date preop
+visit into the procedure's own fee (the sibling project separately
+confirmed the analogous non-bundling result for CPT 58120's 010-day
+period).
+
 **Effect on the model's headline result:** the base case gap moved from
-$335.29 to $304.73 -- standalone unchanged at $868.63; combined fell
-from $1,203.92 to $1,173.36 (the $67.96 professional-fee reduction
-outweighing the $37.39 supply-cost addition). See "One-way sensitivity
-analysis" above for how `iud_insertion_professional_fee`'s own swing
-changed as a direct, checkable consequence of this fix. Mutation-tested:
-see `docs/testing_philosophy.md`.
+$304.73 to $430.13 -- standalone unchanged at $868.63; combined rose
+from $1,173.36 to $1,298.76. Because this cost applies identically
+regardless of any other parameter's value, it does not change any
+parameter's `swing` in "One-way sensitivity analysis" above (confirmed
+directly: every swing value is unchanged from before this addition), only
+`base_case_gap` itself. Mutation-tested: see `docs/testing_philosophy.md`.
 
 ## Cancer-prevention estimate (added 2026-09-10)
 

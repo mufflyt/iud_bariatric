@@ -205,10 +205,11 @@ question can be bounded without it: the entire `expected_perforation_cost`
 applied to each arm is $38.71. That's the absolute most the combined
 arm's cost could drop under ANY same-setting-recognition mechanism, even
 in the impossible best case of 100% immediate recognition at zero
-marginal cost -- a 12.7% cut to the current base case's $304.73 gap (see
-"Two surgeons, real coordination cost" and "Facility-setting professional
-fee" below for the two corrections that moved this gap after this section
-was first written), leaving $266.02 even then. Real mechanism, too small
+marginal cost -- a 9.0% cut to the current base case's $430.13 gap (see
+"Two surgeons, real coordination cost," "Facility-setting professional
+fee," and "Preop consent visit for the combined arm" below for the three
+corrections that moved this gap after this section was first written),
+leaving $391.42 even then. Real mechanism, too small
 to matter here regardless of the exact percentage, which is why it stays
 a documented, deliberately deferred refinement rather than a built one;
 see `iud_perforation_management_cost`'s notes and `docs/data_sources.md`,
@@ -220,13 +221,14 @@ see `iud_perforation_management_cost`'s notes and `docs/data_sources.md`,
 sweeps every cost-engine parameter that has a real, sourced low/high
 range across that range (one at a time, holding everything else at base
 case) and measures how much it moves the headline result: the incremental
-cost gap between the combined and standalone arms ($304.73 in the current
+cost gap between the combined and standalone arms ($430.13 in the current
 base case; this was $196.39 when this analysis was first built, moved to
 $335.29 after "Two surgeons, real coordination cost" below added a real
 professional fee and a scheduling-coordination cost to the combined arm,
-then back down to $304.73 after "Facility-setting professional fee"
-below corrected that same professional fee to a lower, facility-specific
-rate -- see both sections for why). This replaces guesswork about where
+down to $304.73 after "Facility-setting professional fee" below corrected
+that same professional fee to a lower, facility-specific rate, then up to
+$430.13 after "Preop consent visit for the combined arm" below added a
+fourth real cost -- see all three sections for why). This replaces guesswork about where
 further data-hunting is worth the effort with an actual ranking.
 
 **The result reorders priorities.** The two biggest drivers by far are
@@ -271,7 +273,7 @@ ratio CI, which is adjusted for covariates this project's unadjusted
 point estimate is not. This parameter ranks third (swing $185), just
 behind the two OR-time parameters -- and, reassuringly, even at the low
 end of that wide interval (6.81% expulsion), the combined arm still costs
-more than standalone ($231 gap, smaller than the current $305 base case
+more than standalone ($357 gap, smaller than the current $430 base case
 but not reversed), so the model's directional conclusion is robust to
 this parameter's real uncertainty. `patient_time_opportunity_cost_per_visit`
 remains an open gap of the same
@@ -319,11 +321,10 @@ model's headline result up to that point, and it came from confirming a
 real staffing fact, not from any new literature source -- a reminder
 that institutional workflow assumptions can matter as much as published
 parameters. Mutation-tested; see `docs/testing_philosophy.md`. (The
-$116.08 professional-fee figure was itself corrected shortly afterward --
-see "Facility-setting professional fee" next -- so the CURRENT base case
-gap is $304.73, not $335.29; that correction doesn't reverse anything
-here, it refines the combined arm's own fee to a lower, facility-specific
-rate.)
+$116.08 professional-fee figure was itself corrected shortly afterward,
+and a further preop-visit cost was added after that -- see "Facility-
+setting professional fee" and "Preop consent visit for the combined arm"
+next for both, and the current $430.13 gap.)
 
 ## Facility-setting professional fee
 
@@ -381,11 +382,44 @@ proxy applied to a real anchor price (Denver Health's cash price), not
 itself a directly observed facility charge. Flagged provisional for
 that reason.
 
-**Net effect: the base case gap moved from $335.29 to $304.73**
-(standalone unchanged at $868.63; combined fell from $1,203.92 to
-$1,173.36 -- the $67.96 professional-fee reduction outweighing the
-$37.39 supply-cost addition). Mutation-tested; see
-`docs/testing_philosophy.md`.
+**Net effect at the time this was built: the base case gap moved from
+$335.29 to $304.73** (standalone unchanged at $868.63; combined fell
+from $1,203.92 to $1,173.36 -- the $67.96 professional-fee reduction
+outweighing the $37.39 supply-cost addition). Mutation-tested; see
+`docs/testing_philosophy.md`. (A further preop-visit cost was added
+after this -- see next -- so the current gap is $430.13, not $304.73.)
+
+## Preop consent visit for the combined arm
+
+A survey of what else the sibling `emb_colonoscopy` project had already
+solved (prompted by the user asking "what else can we borrow") turned up
+a fourth real, missing cost: that project's structurally identical
+combined arm (EMB during colonoscopy) charges a separate preop office
+visit, on the reasoning that a patient cannot meaningfully consent to a
+procedure while already under anesthesia for a different one. Our
+combined arm charged **$0** for an office visit -- the gynecologist, who
+places the IUD and is not the bariatric surgeon (see "Two surgeons"
+above), had no visit cost at all for counseling/consenting the patient
+beforehand.
+
+New structural toggle `combined_requires_preop_office_visit` (TRUE by
+default, mirroring the sibling's `combined_requires_preop_office_visit`
+exactly) now adds `iud_preop_office_visit_cost` to the combined arm:
+$125.40, CPT 99214 (established patient, moderate complexity -- a higher
+level than the CPT 99213 standalone's own routine insertion visit uses,
+reflecting that this is specifically a surgical-consent/risk-discussion
+encounter). Reused directly from the sibling project's own verified
+extraction (`dnc_preop_clinic_visit_cost`, real 2024 OB/GYN CMS claims
+data) rather than re-pulled, since the underlying claim -- a real OB/GYN
+level-4 E/M visit cost -- transfers regardless of which procedure
+prompted the consent discussion. Checked directly: CPT 58300's own CMS
+global-surgery period is "XXX" (the global-surgery concept doesn't apply
+to this code at all), so there is no bundling rule that would fold this
+visit into the procedure's own fee.
+
+**Net effect: the base case gap moved from $304.73 to $430.13**
+(standalone unchanged at $868.63; combined rose from $1,173.36 to
+$1,298.76). Mutation-tested; see `docs/testing_philosophy.md`.
 
 ## Cancer-prevention estimate
 

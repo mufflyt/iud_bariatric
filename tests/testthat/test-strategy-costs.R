@@ -38,7 +38,6 @@ test_that("compute_combined_strategy_cost excludes the professional fee when the
   )
 
   expect_equal(combined_cost$professional_fee, 0)
-  expect_equal(combined_cost$office_visit_cost, 0)
   expect_equal(combined_cost$disposable_supply_cost, 0)
   expect_gt(combined_cost$added_or_cost, 10 * (20.90 + 3.42)) # inflation-adjusted, so strictly bigger than nominal 2014 dollars
   expect_equal(combined_cost$expected_replacement_cost, 0.163 * (568.50 + 116.08 + 88.76))
@@ -46,7 +45,8 @@ test_that("compute_combined_strategy_cost excludes the professional fee when the
   expect_gt(combined_cost$scheduling_coordination_cost, 0)
   expect_equal(
     combined_cost$expected_total_cost,
-    568.50 + combined_cost$added_or_cost + 0.163 * (568.50 + 116.08 + 88.76) +
+    568.50 + combined_cost$office_visit_cost + combined_cost$added_or_cost +
+      0.163 * (568.50 + 116.08 + 88.76) +
       combined_cost$expected_perforation_cost + combined_cost$scheduling_coordination_cost
   )
 })
@@ -68,6 +68,32 @@ test_that("compute_combined_strategy_cost includes the professional fee when the
   # separately), not the full office rate standalone uses.
   expect_equal(combined_cost$professional_fee, 116.08 * 0.4146)
   expect_equal(combined_cost$disposable_supply_cost, 37.39)
+})
+
+test_that("compute_combined_strategy_cost excludes the preop office visit when that toggle is FALSE", {
+  model_parameters <- test_model_parameters()
+  price_index_table <- test_price_index_table()
+  all_items_price_index_table <- test_all_items_price_index_table()
+  toggled_parameters <- override_model_parameters(
+    model_parameters,
+    list(combined_requires_preop_office_visit = FALSE)
+  )
+  combined_cost <- compute_combined_strategy_cost(
+    toggled_parameters, price_index_table, all_items_price_index_table
+  )
+
+  expect_equal(combined_cost$office_visit_cost, 0)
+})
+
+test_that("compute_combined_strategy_cost includes the preop office visit when that toggle is TRUE (the default)", {
+  model_parameters <- test_model_parameters()
+  price_index_table <- test_price_index_table()
+  all_items_price_index_table <- test_all_items_price_index_table()
+  combined_cost <- compute_combined_strategy_cost(
+    model_parameters, price_index_table, all_items_price_index_table
+  )
+
+  expect_equal(combined_cost$office_visit_cost, 125.40)
 })
 
 test_that("combined arm's own insertion fee is lower than standalone's, reflecting the real facility/office RVU differential", {
@@ -217,13 +243,14 @@ test_that("INDEPENDENT CONFIRMATION: base-case incremental cost matches a from-s
   facility_fee_ratio <- get_parameter_value(model_parameters, "iud_insertion_professional_fee_facility_ratio")
   combined_professional_fee <- professional_fee * facility_fee_ratio
   disposable_supply_cost <- get_parameter_value(model_parameters, "iud_insertion_disposable_supply_cost")
+  preop_office_visit_cost <- get_parameter_value(model_parameters, "iud_preop_office_visit_cost")
 
   expected_standalone <- device + professional_fee + office_visit +
     expulsion_standalone * replacement_encounter_cost +
     failure_probability * added_or_cost +
     perforation_cost
-  expected_combined <- device + combined_professional_fee + disposable_supply_cost + added_or_cost +
-    scheduling_coordination_cost +
+  expected_combined <- device + combined_professional_fee + preop_office_visit_cost + disposable_supply_cost +
+    added_or_cost + scheduling_coordination_cost +
     expulsion_combined * replacement_encounter_cost +
     perforation_cost
 

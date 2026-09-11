@@ -20,9 +20,15 @@
 #'   iud_insertion_professional_fee_facility_ratio`) plus the disposable
 #'   supplies that facility rate excludes but the
 #'   office rate bundles in (`iud_insertion_disposable_supply_cost`),
-#'   plus incremental operating-room and anesthesia minutes at the time
-#'   of the already-scheduled bariatric surgery, inflation-adjusted to
-#'   `reference_dollar_year`, plus a scheduling-coordination cost (see
+#'   plus (if `combined_requires_preop_office_visit` is TRUE, the
+#'   default) a separate preop office visit with the gynecologist for
+#'   counseling/consent -- a patient cannot meaningfully consent while
+#'   already under anesthesia for a different procedure, so this happens
+#'   on an earlier date, not folded into standalone's single combined
+#'   E/M-plus-insertion visit -- plus incremental operating-room and
+#'   anesthesia minutes at the time of the already-scheduled bariatric
+#'   surgery, inflation-adjusted to `reference_dollar_year`, plus a
+#'   scheduling-coordination cost (see
 #'   `compute_scheduling_coordination_cost()`) for aligning the two
 #'   surgeons' OR time, which the standalone arm never incurs.
 #'
@@ -262,6 +268,26 @@ compute_combined_strategy_cost <- function(
     0
   }
 
+  # A patient cannot meaningfully consent to a procedure while already
+  # under anesthesia for a different one, so the consenting physician
+  # (the gynecologist, not the bariatric surgeon) needs their own
+  # encounter on an earlier date. Uses office_visit_cost, the same
+  # column standalone's own insertion visit occupies, since this fills
+  # the analogous "office visit" slot in the combined arm's cost
+  # breakdown rather than adding a new one.
+  requires_preop_visit <- base::isTRUE(
+    base::as.logical(
+      get_parameter_raw_value(
+        model_parameters, "combined_requires_preop_office_visit"
+      )
+    )
+  )
+  office_visit_cost <- if (requires_preop_visit) {
+    get_parameter_value(model_parameters, "iud_preop_office_visit_cost")
+  } else {
+    0
+  }
+
   added_or_cost <- compute_added_or_cost(model_parameters, price_index_table)
 
   expected_replacement_cost <- compute_expected_replacement_cost(
@@ -274,8 +300,8 @@ compute_combined_strategy_cost <- function(
     model_parameters, all_items_price_index_table
   )
 
-  expected_total_cost <- device_cost + professional_fee + disposable_supply_cost + added_or_cost +
-    expected_replacement_cost + expected_perforation_cost + scheduling_coordination_cost
+  expected_total_cost <- device_cost + professional_fee + office_visit_cost + disposable_supply_cost +
+    added_or_cost + expected_replacement_cost + expected_perforation_cost + scheduling_coordination_cost
 
   # No societal add-on: the patient was already coming in for the
   # bariatric surgery regardless, so this arm adds no incremental patient
@@ -284,7 +310,7 @@ compute_combined_strategy_cost <- function(
     strategy = "combined",
     device_cost = device_cost,
     professional_fee = professional_fee,
-    office_visit_cost = 0,
+    office_visit_cost = office_visit_cost,
     disposable_supply_cost = disposable_supply_cost,
     added_or_cost = added_or_cost,
     scheduling_coordination_cost = scheduling_coordination_cost,
