@@ -6,6 +6,35 @@ before it's trusted, not just asserted to work.
 
 ## Mutation-test log
 
+**2026-09-11 -- gamma-fit standard-error scaling
+(`R/sensitivity_probabilistic.R`, `fit_gamma_moments()`).**
+
+Added when the probabilistic sensitivity analysis (PSA) was built: five
+model parameters are tagged `distribution = "gamma"` in
+`config/model_parameters.csv` but have no `gamma_alpha`/`gamma_rate`
+pre-computed, so this function fits them by the standard
+health-economic-PSA method of moments, treating `low_value`/`high_value`
+as a 95% CI and deriving `standard_error = (high - low) / (2 * 1.96)`.
+The initial unit test (checking `shape / rate == mean`) could NOT catch
+a wrong SE-scaling constant, since that ratio always equals `mean`
+regardless of what `standard_error` is -- a genuine blind spot, caught
+before it shipped by asking what a specific realistic bug would do to
+the test suite. A second test was added that independently recomputes
+`shape` and `rate` from the formula's own definition and checks both
+values, not just their ratio. Planted defect: dropped the `/ 2` from
+the SE formula (`(high - low) / 1.96` instead of `(high - low) / (2 *
+1.96)`), via a scripted `sed` substitution -- a realistic off-by-a-
+factor-of-2 mistake, since `1.96` alone is ubiquitous as "the 95% CI
+z-score" and easy to reach for without the doubling that converts a
+half-width into a full range.
+
+- **Red:** 2 tests failed -- both the new `rate` and `shape` assertions
+  in the "derives the standard error from a 95% CI" test, each off by
+  exactly a factor of 4 (the SE was too small by 2x, so its squared
+  reciprocal in `rate` was off by 4x). The original "reproduce the
+  target mean exactly" test, as predicted, did NOT fail.
+- **Reverted, confirmed green:** all tests pass again.
+
 **2026-09-11 -- expulsion-probability parameter assignment
 (`R/strategy_costs.R`, `compute_standalone_strategy_cost()` /
 `compute_combined_strategy_cost()`).**

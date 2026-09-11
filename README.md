@@ -135,8 +135,10 @@ Two real data gaps remain unresolved despite direct attempts: the GPO
 device-acquisition cost ($537-$600) could not be verified from its only
 found source, and whether the model's anchor hospital is actually
 340B-registered could not be confirmed against HRSA's public database
-(see `docs/data_sources.md`). No PSA/deterministic sensitivity analysis,
-manuscript, or figures yet.
+(see `docs/data_sources.md`). Both a one-way deterministic sensitivity
+analysis and a probabilistic (Monte Carlo) sensitivity analysis are now
+built (see "One-way sensitivity analysis" and "Probabilistic sensitivity
+analysis" below); no manuscript or figures yet.
 
 A Medicaid payer scenario (`analysis/02_scenario_analysis.R`) is now
 built, using real, directly-confirmed Colorado Medicaid rates for both the
@@ -280,6 +282,37 @@ but not reversed), so the model's directional conclusion is robust to
 this parameter's real uncertainty. `patient_time_opportunity_cost_per_visit`
 remains an open gap of the same
 kind (used by the cost engine, no sourced range yet).
+
+## Probabilistic sensitivity analysis
+
+The one-way analysis above answers "which single parameter matters
+most, swept alone." It doesn't answer "how uncertain is the headline
+gap once every parameter varies at once, together, the way real-world
+uncertainty actually works." `R/sensitivity_probabilistic.R` /
+`analysis/05_probabilistic_sensitivity_analysis.R` runs a 10,000-draw
+Monte Carlo simulation over the exact same ten parameters swept above,
+sampling each from a distribution family already present in `config/
+model_parameters.csv`'s own `distribution` column (`triangular`, fit
+directly from low/base/high; `gamma`, fit by the standard
+health-economic-PSA method of moments from a mean and an implied 95%
+CI) -- metadata that existed in the schema but had no consumer until
+now. The two probability parameters tagged `fixed` rather than given a
+distribution family (`iud_expulsion_probability_combined`,
+`iud_perforation_risk_baseline`) are correctly held constant, not
+silently randomized; see the file's own docstring for why.
+
+**Result:** against a base case of $490.78, the simulated gap has a
+mean of $477.82 and a 95% simulation interval of $304.49 to $736.26.
+**Standalone was cheaper in 100% of the 10,000 draws.** The
+standalone-vs-combined conclusion is not an artifact of any single
+point estimate -- it holds across the full joint uncertainty this
+project's own sourced parameter ranges describe. (Scope note: like the
+one-way analysis, this targets `expected_total_cost`'s gap only, not
+`expected_cost_per_referred_patient` -- `cancer_prevention_parameters`
+is held fixed, since several of its own parameters have no sourced
+low/high range to sample from yet.)
+
+Mutation-tested; see `docs/testing_philosophy.md`.
 
 ## Two surgeons, real coordination cost
 

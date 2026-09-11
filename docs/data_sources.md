@@ -744,6 +744,105 @@ case. `patient_time_
 opportunity_cost_per_visit` remains excluded from the ranking for the
 same reason this parameter used to be: no sourced low/high range yet.
 
+## Probabilistic sensitivity analysis (added 2026-09-11)
+
+`R/sensitivity_probabilistic.R` / `analysis/05_probabilistic_sensitivity_analysis.R`.
+Not a new data source -- a methods note on how this project's existing
+`config/model_parameters.csv` schema already carried a `distribution`
+column (`triangular`, `gamma`, `fixed`) and `gamma_alpha`/`gamma_rate`
+columns since the schema was first written, with no code ever
+consuming them, until this analysis was built to be their first
+consumer.
+
+**Why a second sensitivity analysis, given the one-way analysis
+above.** The one-way sweep answers "how much does the gap move if I
+vary ONE parameter, holding every other parameter at its exact point
+estimate." That is not the same question as "how uncertain is the gap
+once every parameter varies AT ONCE, the way real joint uncertainty
+actually behaves" -- a question a one-way sweep cannot answer by
+construction, since it only ever moves one dimension at a time.
+
+**Method.** Reuses `SENSITIVITY_PARAMETER_NAMES`
+(`R/sensitivity_deterministic.R`) unchanged -- the same ten parameters
+already vetted there as consumed by the cost engine with a real,
+sourced low/high range; nothing new is swept that wasn't already
+swept one-way. For each of the 10,000 draws, every parameter is
+sampled simultaneously from its own distribution (see below),
+`override_model_parameters()` applies all ten sampled values at once,
+and `compute_incremental_gap()` is recomputed on that draw.
+
+**Distribution fitting, by parameter's own `distribution` tag:**
+- `triangular` (`iud_device_acquisition_cost_gpo`,
+  `combined_arm_added_minutes`, `iud_expulsion_probability_standalone`,
+  `standalone_office_failure_probability`): sampled directly from
+  (`low_value`, `base_value`, `high_value`) via the standard
+  inverse-CDF triangular formula -- no fitting required, since a
+  triangular distribution's three parameters are exactly this
+  project's own low/base/high columns.
+- `gamma` (`iud_insertion_professional_fee`, `office_visit_em_cost`,
+  `direct_room_cost_per_minute`, `anesthesia_cost_per_minute`): fit by
+  the method-of-moments technique standard in health-economic PSA
+  modeling (Briggs A, Claxton K, Sculpher M. "Decision Modelling for
+  Health Economic Evaluation." Oxford University Press; 2006, ch. 4,
+  the standard methods reference for exactly this step): `base_value`
+  is treated as the target mean, `(high_value - low_value) / (2 *
+  1.96)` as the standard error implied by treating low/high as a 95%
+  CI's bounds, then `rate = mean / SE^2`, `shape = mean * rate`. This
+  keeps the fitted gamma's mean exactly equal to `base_value` (a useful
+  property: it means the PSA's average draw should land close to the
+  deterministic base case purely as a consequence of correct fitting,
+  which is exactly what was checked before trusting the result -- see
+  below).
+- `fixed` (`iud_expulsion_probability_combined`,
+  `iud_perforation_risk_baseline`): held at `base_value` in every draw,
+  zero variance. Both carry a real low_value/high_value range (used by
+  the one-way sweep above), but their `distribution` column says
+  `fixed`, not a probability-appropriate family like `beta` -- that tag
+  is respected exactly as written here, not silently reinterpreted.
+  Assigning either of them a beta distribution (the natural choice for
+  a bounded probability, fit the same method-of-moments way) is a real,
+  separate methodological decision that would need to be made
+  deliberately by changing that CSV tag, not inferred from "well, it
+  has a low/high value, so surely it should vary." Until that tag is
+  changed, both parameters are correctly reported as NOT varied in this
+  PSA, matching the CSV's own stated intent.
+
+**NOT varied: `cancer_prevention_parameters`.** This PSA is scoped, like
+the one-way analysis, to `expected_total_cost`'s
+`incremental_cost_vs_standalone` -- which never consumes
+`cancer_prevention_parameters` at all (only
+`expected_cost_per_referred_patient` does, via
+`expected_missed_cancer_prevention_cost`; see `R/strategy_costs.R`).
+Extending this PSA to that second metric would require sourced
+low/high ranges for `endometrial_cancer_lifetime_risk_usual_care_bmi40`,
+`endometrial_cancer_death_risk_usual_care_bmi40`, and
+`endometrial_cancer_treatment_cost`, none of which exist yet -- not
+attempted here rather than inventing plausible-looking ranges for them.
+
+**Sanity check performed before trusting the result:** with the gamma
+fit's mean forced to equal `base_value` exactly, and the triangular
+mean close to its own mode, the simulation's `mean_gap` should land
+close to the deterministic `base_case_gap` purely as a property of
+correct fitting -- confirmed directly (`tests/testthat/
+test-sensitivity-probabilistic.R`): at 1,000 draws, `mean_gap` matched
+`base_case_gap` within $0.10 relative tolerance. This does not prove
+the simulation is doing anything meaningful, but it does rule out a
+whole class of fitting bugs (a systematically biased distribution would
+show up here as a persistent, seed-independent drift away from the
+deterministic value).
+
+**Result (10,000 draws, seed 20260911, `tables/psa_summary.csv` and
+`tables/psa_draws.csv`, both git-ignored -- regenerate with `Rscript
+analysis/05_probabilistic_sensitivity_analysis.R`):** against the
+current $490.78 base case, the simulated gap has a mean of $477.82,
+median $463.42, standard deviation $111.55, and a 95% simulation
+interval of $304.49 to $736.26. **Standalone was cheaper in all 10,000
+draws (100%).** The standalone-vs-combined conclusion holds across the
+full joint uncertainty this project's own sourced parameter ranges
+describe, not just at the single base-case point estimate.
+
+Mutation-tested; see `docs/testing_philosophy.md`.
+
 ## Two-surgeon coordination cost (added 2026-09-10)
 
 Prompted by the model owner directly clarifying this institution's actual
