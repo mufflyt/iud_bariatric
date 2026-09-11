@@ -154,3 +154,23 @@ similarly-named `combined_arm_*_minutes` parameters.
   60 minutes at the right one, times the scheduler wage) and the base-case
   `INDEPENDENT CONFIRMATION` test on `expected_total_cost`.
 - **Reverted, confirmed green:** all tests pass again.
+
+**2026-09-11 -- combined arm's facility-setting professional fee
+(`R/strategy_costs.R`, `compute_combined_strategy_cost()`).**
+
+Added when a real CMS RVU differential (CPT 58300's non-facility total
+RVU 3.16 vs. facility total RVU 1.31) showed the combined arm's own
+insertion should use a lower, facility-equivalent professional fee
+rather than the full office rate standalone uses -- the office rate
+bundles overhead the OR/facility already bills separately. Planted
+defect: reverted to using the full, unmultiplied
+`iud_insertion_professional_fee` for the combined arm (the pre-fix
+behavior) via a scripted Python substitution.
+
+- **Red:** 5 tests failed -- both direct assertions on the combined
+  arm's `professional_fee` value (base case and Medicaid scenario), the
+  new "lower than standalone" comparison test (failed outright: the two
+  fees were equal, not lower), and the base-case `INDEPENDENT
+  CONFIRMATION` test (off by exactly $68, the size of the missing ratio's
+  effect).
+- **Reverted, confirmed green:** all tests pass again.

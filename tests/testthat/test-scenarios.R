@@ -66,9 +66,12 @@ test_that("medicaid_illustrative and base_case combined arms both pay a separate
     scenario_results$scenario == "base_case" & scenario_results$strategy == "combined",
   ]
 
+  # combined's professional_fee is always the FACILITY-setting rate (see
+  # iud_insertion_professional_fee_facility_ratio in R/strategy_costs.R),
+  # applied to whichever office-rate value the scenario overrides.
   expect_gt(medicaid_combined$professional_fee, 0)
   expect_gt(base_combined$professional_fee, 0)
-  expect_equal(medicaid_combined$professional_fee, 58.65)
+  expect_equal(medicaid_combined$professional_fee, 58.65 * 0.4146)
   expect_false(medicaid_combined$professional_fee == base_combined$professional_fee)
 })
 

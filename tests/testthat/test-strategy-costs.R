@@ -39,6 +39,7 @@ test_that("compute_combined_strategy_cost excludes the professional fee when the
 
   expect_equal(combined_cost$professional_fee, 0)
   expect_equal(combined_cost$office_visit_cost, 0)
+  expect_equal(combined_cost$disposable_supply_cost, 0)
   expect_gt(combined_cost$added_or_cost, 10 * (20.90 + 3.42)) # inflation-adjusted, so strictly bigger than nominal 2014 dollars
   expect_equal(combined_cost$expected_replacement_cost, 0.163 * (568.50 + 116.08 + 88.76))
   expect_gt(combined_cost$expected_perforation_cost, 0)
@@ -62,7 +63,38 @@ test_that("compute_combined_strategy_cost includes the professional fee when the
     toggled_parameters, price_index_table, all_items_price_index_table
   )
 
-  expect_equal(combined_cost$professional_fee, 116.08)
+  # The combined arm's own insertion uses the FACILITY-setting fee (a
+  # real CMS RVU differential, since the OR bills its own overhead
+  # separately), not the full office rate standalone uses.
+  expect_equal(combined_cost$professional_fee, 116.08 * 0.4146)
+  expect_equal(combined_cost$disposable_supply_cost, 37.39)
+})
+
+test_that("combined arm's own insertion fee is lower than standalone's, reflecting the real facility/office RVU differential", {
+  model_parameters <- test_model_parameters()
+  price_index_table <- test_price_index_table()
+  all_items_price_index_table <- test_all_items_price_index_table()
+  standalone_cost <- compute_standalone_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
+  combined_cost <- compute_combined_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
+
+  expect_lt(combined_cost$professional_fee, standalone_cost$professional_fee)
+  expect_equal(combined_cost$professional_fee, standalone_cost$professional_fee * 0.4146)
+})
+
+test_that("only the combined arm carries the disposable-supply cost, never the standalone arm", {
+  # The supply items (pelvic exam pack, povidone, etc.) are already
+  # bundled into the office-rate professional fee standalone uses; adding
+  # them there too would double-count. They are excluded from the
+  # facility-rate fee combined uses, so must be added back for combined
+  # specifically.
+  model_parameters <- test_model_parameters()
+  price_index_table <- test_price_index_table()
+  all_items_price_index_table <- test_all_items_price_index_table()
+  standalone_cost <- compute_standalone_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
+  combined_cost <- compute_combined_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
+
+  expect_equal(standalone_cost$disposable_supply_cost, 0)
+  expect_equal(combined_cost$disposable_supply_cost, 37.39)
 })
 
 test_that("compute_expected_perforation_cost is perforation probability times inflation-adjusted management cost", {
@@ -182,12 +214,15 @@ test_that("INDEPENDENT CONFIRMATION: base-case incremental cost matches a from-s
   coordination_minutes <- get_parameter_value(model_parameters, "combined_arm_scheduling_coordination_minutes")
   scheduler_wage_per_min <- adjust_for_inflation(0.368, 2025, reference_year, all_items_price_index_table)
   scheduling_coordination_cost <- coordination_minutes * scheduler_wage_per_min
+  facility_fee_ratio <- get_parameter_value(model_parameters, "iud_insertion_professional_fee_facility_ratio")
+  combined_professional_fee <- professional_fee * facility_fee_ratio
+  disposable_supply_cost <- get_parameter_value(model_parameters, "iud_insertion_disposable_supply_cost")
 
   expected_standalone <- device + professional_fee + office_visit +
     expulsion_standalone * replacement_encounter_cost +
     failure_probability * added_or_cost +
     perforation_cost
-  expected_combined <- device + professional_fee + added_or_cost +
+  expected_combined <- device + combined_professional_fee + disposable_supply_cost + added_or_cost +
     scheduling_coordination_cost +
     expulsion_combined * replacement_encounter_cost +
     perforation_cost

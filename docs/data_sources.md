@@ -610,15 +610,17 @@ percentage, the question can be answered with a bound instead: the entire
 arm's cost could drop under ANY same-setting-recognition mechanism, even
 in the impossible best case where 100% of perforations were caught
 immediately and managed at zero marginal cost. Against the base case's combined-arm cost disadvantage at the time this
-was computed ($196.39, before "Two-surgeon coordination cost" below added
-a real professional fee and scheduling-coordination cost to the combined
-arm, widening the gap to $335.29), that was a 19.7% reduction at most,
-leaving a $157.68 disadvantage even in that best case -- nowhere close to
-reversing the model's conclusion, and the same logic scales the same way
-against the current, larger gap ($38.71 is now an 11.5% cut, leaving
-$296.58). This mechanism is real but quantitatively too small to matter
-here, independent of the exact percentage, which is why it is not built
-into the cost engine: the verification gap turned out not to be the
+was computed ($196.39), that was a 19.7% reduction at most, leaving a
+$157.68 disadvantage even in that best case -- nowhere close to
+reversing the model's conclusion. That gap has since moved twice more
+("Two-surgeon coordination cost" widened it to $335.29, then "Facility-
+setting professional fee" corrected it back down to $304.73), and the
+same logic scales the same way against the current gap: $38.71 is a
+12.7% cut at most, leaving $266.02. This mechanism is real but
+quantitatively too small to matter here, independent of the exact
+percentage or which version of the gap it's checked against, which is
+why it is not built into the cost engine: the verification gap turned
+out not to be the
 blocking issue after all.
 
 **What was built instead, as the higher-value first step:** both arms now
@@ -664,32 +666,38 @@ value (holding everything else at base case), recompute
 the high value. `swing = abs(gap_at_high - gap_at_low)` ranks parameters
 by how much they move the headline result.
 
-**Result (2026-09-10, current base case, after closing the
-`iud_expulsion_probability_combined` gap described below AND after "Two-
-surgeon coordination cost" below moved the base_case_gap itself from
-$196.39 to $335.29):** `direct_room_cost_per_minute` (swing $328) and
-`combined_arm_added_minutes` (swing $318) dominate, followed closely by
-`iud_expulsion_probability_combined` ($185), then `anesthesia_cost_per_
-minute` ($77), `iud_expulsion_probability_standalone` ($42),
-`standalone_office_failure_probability` ($27), `office_visit_em_cost`
-($9), `iud_device_acquisition_cost_gpo` ($7), `iud_insertion_
-professional_fee` ($5, DOWN from $45 -- see below for why), and
-`iud_perforation_risk_baseline` (essentially $0). Full table:
+**Result (2026-09-11, current base case, after closing the
+`iud_expulsion_probability_combined` gap described below, AND after both
+"Two-surgeon coordination cost" and "Facility-setting professional fee"
+below moved `base_case_gap` from $196.39 -> $335.29 -> $304.73):**
+`direct_room_cost_per_minute` (swing $328.43) and `combined_arm_
+added_minutes` (swing $318.48) dominate, followed by `iud_expulsion_
+probability_combined` ($184.75), `anesthesia_cost_per_minute` ($77.00),
+`iud_expulsion_probability_standalone` ($41.76), `standalone_office_
+failure_probability` ($26.54), `iud_insertion_professional_fee` ($23.92),
+`office_visit_em_cost` ($8.64), `iud_device_acquisition_cost_gpo` ($6.74),
+and `iud_perforation_risk_baseline` (essentially $0). Full table:
 `tables/sensitivity_analysis.csv` (git-ignored; regenerate with
 `Rscript analysis/04_sensitivity_analysis.R`).
 
-**A mechanical property worth stating explicitly:** every swing value
-above is unchanged by the professional-fee/coordination-cost addition
-described in "Two-surgeon coordination cost," with exactly one exception.
-Adding a cost that applies identically to both arms shifts `base_case_gap`
-by a constant but cannot change any `swing` value, since
-`swing = abs(gap_at_high - gap_at_low)` and a constant added to both
-`gap_at_high` and `gap_at_low` cancels in the subtraction. The one
-exception, `iud_insertion_professional_fee`, changed because the toggle
-flip changed WHERE its own value gets read from -- it now enters both
-arms' totals directly (previously only standalone's), so it now cancels
-between the arms the same way device cost always has, and its swing
-dropped from $45 to $5 accordingly.
+**A mechanical property, and one parameter's swing changing twice for
+two different reasons.** Adding a cost that applies IDENTICALLY to both
+arms shifts `base_case_gap` by a constant but cannot change any `swing`
+value, since `swing = abs(gap_at_high - gap_at_low)` and a constant added
+to both `gap_at_high` and `gap_at_low` cancels in the subtraction --
+confirmed directly: every parameter's swing above is unchanged from
+before either correction, with one exception. `iud_insertion_
+professional_fee`'s swing moved twice: $45 originally (read only by
+standalone directly, plus a small differential channel through
+replacement cost); down to about $5 once "Two-surgeon coordination cost"
+made the SAME dollar amount apply to both arms directly (mostly
+canceling, the way device cost always has); back up to $23.92 once
+"Facility-setting professional fee" made combined's own reading of this
+parameter a *fraction* (the facility ratio) rather than the same dollar
+amount -- varying the office rate no longer moves both arms by the same
+amount, so it stops canceling as cleanly. This is a real, checkable
+illustration of the same mechanical rule: only a change that breaks
+IDENTICAL-across-arms treatment of a parameter can move its swing.
 
 **A genuinely non-obvious finding, not just a ranking:** the still-
 unverified GPO device-acquisition cost ($537-$600, the subject of a
@@ -718,16 +726,16 @@ range, when this analysis first ran; `run_one_way_sensitivity()` refused
 to sweep it rather than inventing one. See "Masten M, et al." above,
 under "Clinical precedent," for the fix: reading the full text directly
 and computing an exact Clopper-Pearson 95% CI on the paper's own 7/43 raw
-proportion (6.81%-30.70%). Re-run with that fix in place, this parameter
-ranks third (swing $185), and -- reassuringly -- even at the low end of
-that wide interval, the combined arm still costs more than standalone
-($262 gap vs. the current $335 base case, or $123 gap vs. the $196 base
-case as it stood before "Two-surgeon coordination cost" below), so the
-model's directional conclusion does not depend on exactly where within
-this range the true rate falls, nor on the professional-fee/coordination
-addition. `patient_time_opportunity_cost_per_visit` remains excluded from
-the ranking for the same reason this parameter used to be: no sourced
-low/high range yet.
+proportion (6.81%-30.70%). This parameter ranks third (swing $184.75) --
+and, reassuringly, even at the low end of that wide interval, the
+combined arm still costs more than standalone: gap_at_low is $231.32
+against the current $304.73 base case (it was $123 against the $196.39
+base case before the professional-fee/coordination corrections, and
+$261.90 against the $335.29 gap in between) -- the model's directional
+conclusion has never depended on exactly where within this range the
+true rate falls, across any version of the base case. `patient_time_
+opportunity_cost_per_visit` remains excluded from the ranking for the
+same reason this parameter used to be: no sourced low/high range yet.
 
 ## Two-surgeon coordination cost (added 2026-09-10)
 
@@ -785,16 +793,117 @@ the 11 of 12 monthly 2025 values available from FRED as of 2026-09-10,
 321.962; see `data/cpi_all_items.csv`) was added to inflation-adjust this
 2025-dollar wage to `reference_dollar_year`.
 
-**Combined effect on the model's headline result:** the base case's
-incremental cost gap moved from $196.39 to $335.29 -- standalone
-unchanged at $868.63, combined up from $1,065.02 to $1,203.92
-($116.08 professional fee + $22.82 coordination cost, in
-`reference_dollar_year` dollars). This is the largest single revision to
-the model's result in this session, and it came from confirming a real
-staffing fact rather than from any new literature source. See "One-way
+**Combined effect on the model's headline result, at the time this was
+built:** the base case's incremental cost gap moved from $196.39 to
+$335.29 -- standalone unchanged at $868.63, combined up from $1,065.02
+to $1,203.92 ($116.08 professional fee + $22.82 coordination cost, in
+`reference_dollar_year` dollars). This was the largest single revision
+to the model's result up to that point, and it came from confirming a
+real staffing fact rather than from any new literature source. See "One-way
 sensitivity analysis" above for how this shift did (and, mechanically,
 could not) affect other parameters' swing values. Mutation-tested: see
-`docs/testing_philosophy.md`.
+`docs/testing_philosophy.md`. (The $116.08 figure itself was corrected
+the same day -- see "Facility-setting professional fee" next -- so the
+gap now stands at $304.73, not $335.29.)
+
+## Facility-setting professional fee (added 2026-09-11)
+
+Prompted directly by the user asking whether the device cost, the
+bariatric/gynecology professional fees, and office-vs-OR facility fees
+were all accounted for -- while confirming yes to the last two, the
+answer surfaced a real refinement: CPT 58300's own professional fee
+should not be the same dollar amount in both settings.
+
+**The mechanism, verified directly from CMS's own data.** RVU26C (CMS's
+July 2026 National Physician Fee Schedule Relative Value File,
+downloaded directly 2026-09-11 from
+`https://www.cms.gov/files/zip/rvu26c-updated-06-30-2026.zip`, file
+`PPRRVU2026_Jul_nonQPP.csv`) gives CPT 58300's RVU components by place of
+service, even though Medicare itself does not pay for the code (status
+N):
+
+| Component | Non-facility (office) | Facility (OR) |
+|---|---|---|
+| Work RVU | 0.98 | 0.98 |
+| Practice-expense RVU | 2.07 | 0.22 |
+| Malpractice RVU | 0.11 | 0.11 |
+| **Total RVU** | **3.16** | **1.31** |
+
+The office (non-facility) rate bundles in practice-expense overhead
+(staff, room, supplies) because the physician's own practice bears that
+cost in an office; the facility rate strips almost all of it out (2.07
+-> 0.22) because the facility bills its own overhead separately -- here,
+via `direct_room_cost_per_minute`. Charging the combined arm's own
+insertion the full $116.08 office rate, identical to standalone's, was
+therefore double-counting overhead already priced in via the OR facility
+cost.
+
+**New parameter: `iud_insertion_professional_fee_facility_ratio` =
+0.4146** (1.31 / 3.16). Stored as a RATIO, applied at compute time
+(`iud_insertion_professional_fee x iud_insertion_professional_fee_
+facility_ratio`) inside `compute_combined_strategy_cost()`, rather than
+as its own fixed dollar parameter -- deliberately, so that any scenario
+overriding the office rate (`medicaid_illustrative` already does, with
+Colorado's real CPT 58300 Medicaid rate) automatically produces a
+consistent facility-equivalent value without a second override to keep
+in sync. Applied to the base case's $116.08: 116.08 x 0.4146 = $48.13.
+This is a proxy, not a directly observed facility charge: CPT 58300 is
+Medicare-non-covered, so no live claims-volume data exists to split by
+place of service the way real paid claims would; the ratio comes from
+CMS's own relative-value methodology, applied to a real anchor price
+(Denver Health's cash price), not the other way around. Flagged
+provisional for that reason (`evidence_tier = C`).
+
+**A second, related mechanism, checked the same way: disposable
+supplies.** The facility rate's much lower practice-expense RVU (0.22 vs.
+2.07) implies it excludes something the office rate includes. Checked
+directly: CMS's CY2026 Direct Practice Expense Inputs file (`CMS-1832-F`,
+downloaded from
+`https://www.cms.gov/files/zip/cy-2026-pfs-final-rule-direct-pe-inputs.zip`,
+file `CMS-1832-F_PUF_Supply_508.txt`) lists three supply items for HCPCS
+58300:
+
+| Supply | CMS code | Unit price | `nf_quantity` | `f_quantity` |
+| --- | --- | --- | --- | --- |
+| Pack, minimum multi-specialty visit | SA048 | $4.01 | 1 | 0 |
+| Pack, pelvic exam | SA051 | $14.38 | 1 | 0 |
+| Povidone soln (Betadine) | SJ041 | $0.38/ml | 50 | 0 |
+| **Total** | | **$37.39** | | |
+
+All three carry `nf_quantity > 0` (priced into the office rate, i.e.
+already inside `iud_insertion_professional_fee`) and `f_quantity = 0`
+(excluded from the facility rate). New parameter
+`iud_insertion_disposable_supply_cost` = $37.39, applied ONLY to the
+combined arm: since the bariatric-surgery OR itself is never separately
+charged under this model's incremental-cost principle, these supplies
+are a genuine incremental cost when added to that setting, not a
+double-count the way adding them to standalone would be (standalone's
+office rate already bundles them).
+
+**This exact mechanism, and exactly this two-part fix, already exists in
+the sibling `emb_colonoscopy` project**, for CPT 58100 (endometrial
+biopsy): `emb_office_professional_cost` / `emb_office_professional_cost_
+facility` and `emb_disposable_supply_cost`, confirmed by reading that
+project's `config/model_parameters.csv` and `docs/data_sources.md`
+directly, 2026-09-11 -- prompted by the user pointing there first
+("We had this cost of surgery scheduler time in endometrial biopsy
+colonoscopy," in reference to the coordination-cost feature, which led
+directly to checking whether the facility-fee question was also already
+solved there). One structural difference: CPT 58100 IS Medicare-covered,
+so that project split its professional fee using a LIVE CMS PUF query by
+`Place_Of_Srvc` -- an actual observed office-vs-facility payment gap
+(~38%, $97.03 vs. $60.05), not a ratio proxy. CPT 58300's non-coverage
+means this project cannot replicate that exact method; the RVU-ratio
+approach here is the closest available substitute, not an equally strong
+one.
+
+**Effect on the model's headline result:** the base case gap moved from
+$335.29 to $304.73 -- standalone unchanged at $868.63; combined fell
+from $1,203.92 to $1,173.36 (the $67.96 professional-fee reduction
+outweighing the $37.39 supply-cost addition). See "One-way sensitivity
+analysis" above for how `iud_insertion_professional_fee`'s own swing
+changed as a direct, checkable consequence of this fix. Mutation-tested:
+see `docs/testing_philosophy.md`.
 
 ## Cancer-prevention estimate (added 2026-09-10)
 

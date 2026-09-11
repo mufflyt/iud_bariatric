@@ -13,13 +13,18 @@
 #' - `combined`: IUD device, plus (if
 #'   `combined_requires_separate_professional_fee` is TRUE, the default:
 #'   the gynecologist places the device, not the bariatric surgeon,
-#'   confirmed by the model owner 2026-09-10) the same insertion
-#'   professional fee, plus incremental operating-room and anesthesia
-#'   minutes at the time of the already-scheduled bariatric surgery,
-#'   inflation-adjusted to `reference_dollar_year`, plus a
-#'   scheduling-coordination cost (see `compute_scheduling_coordination_cost()`)
-#'   for aligning the two surgeons' OR time, which the standalone arm
-#'   never incurs.
+#'   confirmed by the model owner 2026-09-10) the FACILITY-setting
+#'   insertion professional fee (lower than standalone's office rate --
+#'   a real CMS RVU differential, since the facility bills its own
+#'   overhead separately; `iud_insertion_professional_fee x
+#'   iud_insertion_professional_fee_facility_ratio`) plus the disposable
+#'   supplies that facility rate excludes but the
+#'   office rate bundles in (`iud_insertion_disposable_supply_cost`),
+#'   plus incremental operating-room and anesthesia minutes at the time
+#'   of the already-scheduled bariatric surgery, inflation-adjusted to
+#'   `reference_dollar_year`, plus a scheduling-coordination cost (see
+#'   `compute_scheduling_coordination_cost()`) for aligning the two
+#'   surgeons' OR time, which the standalone arm never incurs.
 #'
 #' Both arms also carry an EXPECTED replacement cost for device expulsion,
 #' since Masten et al. 2024 (J Pediatr Adolesc Gynecol) found combined
@@ -203,6 +208,7 @@ compute_standalone_strategy_cost <- function(
     device_cost = device_cost,
     professional_fee = professional_fee,
     office_visit_cost = office_visit_cost,
+    disposable_supply_cost = 0,
     added_or_cost = 0,
     scheduling_coordination_cost = 0,
     expected_replacement_cost = expected_replacement_cost,
@@ -234,8 +240,24 @@ compute_combined_strategy_cost <- function(
       )
     )
   )
+  # The combined arm's own (first) insertion happens in the OR/facility
+  # setting, not the physician's own office, so it uses the
+  # facility-setting professional fee (lower than the office rate: a real
+  # CMS RVU differential, see iud_insertion_professional_fee_facility's
+  # source) plus the disposable supplies the facility rate excludes (see
+  # iud_insertion_disposable_supply_cost). This does NOT apply to a
+  # replacement encounter (always modeled as an office-style visit
+  # regardless of which arm's device expelled) or to the standalone arm's
+  # own insertion, both of which correctly keep using
+  # iud_insertion_professional_fee, the office rate.
   professional_fee <- if (requires_separate_fee) {
-    get_parameter_value(model_parameters, "iud_insertion_professional_fee")
+    get_parameter_value(model_parameters, "iud_insertion_professional_fee") *
+      get_parameter_value(model_parameters, "iud_insertion_professional_fee_facility_ratio")
+  } else {
+    0
+  }
+  disposable_supply_cost <- if (requires_separate_fee) {
+    get_parameter_value(model_parameters, "iud_insertion_disposable_supply_cost")
   } else {
     0
   }
@@ -252,7 +274,7 @@ compute_combined_strategy_cost <- function(
     model_parameters, all_items_price_index_table
   )
 
-  expected_total_cost <- device_cost + professional_fee + added_or_cost +
+  expected_total_cost <- device_cost + professional_fee + disposable_supply_cost + added_or_cost +
     expected_replacement_cost + expected_perforation_cost + scheduling_coordination_cost
 
   # No societal add-on: the patient was already coming in for the
@@ -263,6 +285,7 @@ compute_combined_strategy_cost <- function(
     device_cost = device_cost,
     professional_fee = professional_fee,
     office_visit_cost = 0,
+    disposable_supply_cost = disposable_supply_cost,
     added_or_cost = added_or_cost,
     scheduling_coordination_cost = scheduling_coordination_cost,
     expected_replacement_cost = expected_replacement_cost,
