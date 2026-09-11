@@ -565,6 +565,45 @@ reason.
 
 Mutation-tested; see `docs/testing_philosophy.md`.
 
+## Does bariatric surgery also improve survival after an endometrial cancer diagnosis?
+
+A direct follow-up question: the cancer-prevention chain above already
+applies `bariatric_surgery_endometrial_cancer_hazard_ratio` (Schauer et
+al. 2019) to endometrial cancer INCIDENCE -- the risk of developing it
+in the first place. Does bariatric surgery also change SURVIVAL once a
+woman already has an endometrial cancer diagnosis? That would be a
+different hazard ratio, measured in a different population (diagnosed
+patients, not the general obese population), and it was not assumed to
+be the same without checking.
+
+The only real, cohort-derived estimate found: Lee et al. 2021 (*Surg
+Obes Relat Dis* 18(1):42-52), a California Cancer Registry cohort of
+endometrial cancer patients with (n=46) vs. without (n=3,343)
+post-diagnosis weight-loss surgery, reports an adjusted all-cause
+mortality hazard ratio of 0.23 (95% CI 0.033-1.70, p=0.15) -- not
+statistically significant, and based on fewer than 15 deaths in the
+surgery group. A decision-analytic paper that sounds relevant, Argenta
+et al. 2015 (*Gynecol Oncol* 138(3):597-602), turned out not to be
+usable either: it's a Markov simulation whose survival assumption is
+imported from general bariatric-surgery mortality literature, not
+measured in endometrial cancer patients specifically.
+
+Given a CI that wide (crossing 1.0 by a wide margin) on that few
+events, this is deliberately **excluded from the base case** --
+`bariatric_surgery_endometrial_cancer_mortality_hazard_ratio`'s
+`base_value` is fixed at 1 (no adjustment) in
+`config/cancer_prevention_parameters.csv`. It's kept as a documented,
+sourced, sensitivity-only parameter, consumed only by
+`compute_expected_missed_cancer_prevention_cost_at_mortality_hr()` in
+`R/strategy_costs.R` -- a separate function the base-case tibbles never
+call. Sweeping the full CI moves `expected_missed_cancer_prevention_cost`
+from $53.72 (at HR=0.033, the most-protective end) to $115.61 (at
+HR=1.70, the least-protective end), against a base case of $89.62 (at
+HR=1, no adjustment) -- a real range, but one that doesn't change which
+strategy is cheaper either way.
+
+Mutation-tested; see `docs/testing_philosophy.md`.
+
 ## Cancer-prevention estimate
 
 A separate module (`R/cancer_prevention.R`,

@@ -258,3 +258,29 @@ missing the IUD specifically").
   and the base-case `INDEPENDENT CONFIRMATION` test's assertion on
   `expected_cost_per_referred_patient`.
 - **Reverted, confirmed green:** all tests pass again.
+
+**2026-09-11 -- mortality-specific hazard ratio sensitivity function's
+multiplier
+(`R/strategy_costs.R`, `compute_expected_missed_cancer_prevention_cost_at_mortality_hr()`).**
+
+Added after a reviewer asked whether bariatric surgery might also
+change *survival* after an endometrial cancer diagnosis (not just
+*incidence* beforehand, which `bariatric_surgery_endometrial_cancer_hazard_ratio`
+already covers). The only real cohort estimate found for this (Lee et
+al. 2021, HR 0.23, 95% CI 0.033-1.70, p=0.15, fewer than 15 deaths) is
+not statistically significant, so it is deliberately excluded from the
+base case (`bariatric_surgery_endometrial_cancer_mortality_hazard_ratio`'s
+`base_value` is fixed at 1) and lives only in this separate,
+sensitivity-only function. Planted defect: dropped the
+`mortality_hazard_ratio` multiplier entirely (i.e. always applied the
+unadjusted mortality-given-diagnosis ratio, regardless of the argument
+passed in), via a scripted `sed` substitution -- a realistic mistake
+for a sensitivity function specifically built to vary one input.
+
+- **Red:** 3 tests failed -- both CI-sweep assertions (at HR=0.033 and
+  HR=1.70, each off by exactly the size of the dropped multiplier's
+  effect) and the "lower HR must produce a lower cost" ordering
+  assertion, which failed outright since the mutated function no
+  longer varied with its own argument at all (both sides of the
+  comparison collapsed to the same $89.60 value).
+- **Reverted, confirmed green:** all tests pass again.

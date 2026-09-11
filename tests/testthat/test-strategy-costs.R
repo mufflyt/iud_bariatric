@@ -26,6 +26,74 @@ test_that("compute_expected_missed_cancer_prevention_cost multiplies loss-to-fol
   )
 })
 
+test_that("compute_expected_missed_cancer_prevention_cost_at_mortality_hr at its default (HR=1) exactly matches the base-case function", {
+  # bariatric_surgery_endometrial_cancer_mortality_hazard_ratio's base_value
+  # is fixed at 1 (no adjustment) specifically so this sensitivity-only
+  # function reproduces the base case exactly when not overridden -- this
+  # is the regression check that the first_year/last_year decomposition
+  # was done correctly.
+  model_parameters <- test_model_parameters()
+  price_index_table <- test_price_index_table()
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
+
+  # tolerance accounts for endometrial_cancer_treatment_cost being stored
+  # pre-rounded to the cent (34982.33); the decomposed recomputation here
+  # carries full floating-point precision, so the two differ by a few
+  # thousandths of a cent -- not a real discrepancy.
+  expect_equal(
+    compute_expected_missed_cancer_prevention_cost_at_mortality_hr(
+      model_parameters, cancer_prevention_parameters, price_index_table
+    ),
+    compute_expected_missed_cancer_prevention_cost(
+      model_parameters, cancer_prevention_parameters, price_index_table
+    ),
+    tolerance = 1e-4
+  )
+})
+
+test_that("compute_expected_missed_cancer_prevention_cost_at_mortality_hr sweeps Lee et al. 2021's 95% CI as expected", {
+  model_parameters <- test_model_parameters()
+  price_index_table <- test_price_index_table()
+  cancer_prevention_parameters <- test_cancer_prevention_parameters()
+  reference_year <- get_parameter_value(model_parameters, "reference_dollar_year")
+
+  loss_to_follow_up_probability <- 0.257
+  post_surgery_no_iud_risk <- 0.03 * 0.50
+  iud_absolute_risk_reduction <- post_surgery_no_iud_risk * (1 - 0.50)
+  mortality_given_diagnosis_ratio <- 0.014 / 0.03
+  first_year_cost <- adjust_for_inflation(20491.74, 2015, reference_year, price_index_table)
+  last_year_of_life_cost <- adjust_for_inflation(31051.26, 2015, reference_year, price_index_table)
+
+  expected_cost_at_hr <- function(mortality_hazard_ratio) {
+    treatment_cost <- first_year_cost +
+      (mortality_given_diagnosis_ratio * mortality_hazard_ratio) * last_year_of_life_cost
+    loss_to_follow_up_probability * iud_absolute_risk_reduction * treatment_cost
+  }
+
+  expect_equal(
+    compute_expected_missed_cancer_prevention_cost_at_mortality_hr(
+      model_parameters, cancer_prevention_parameters, price_index_table, mortality_hazard_ratio = 0.033
+    ),
+    expected_cost_at_hr(0.033)
+  )
+  expect_equal(
+    compute_expected_missed_cancer_prevention_cost_at_mortality_hr(
+      model_parameters, cancer_prevention_parameters, price_index_table, mortality_hazard_ratio = 1.70
+    ),
+    expected_cost_at_hr(1.70)
+  )
+  # A lower mortality hazard ratio (more protective) must produce a lower
+  # missed-cancer-prevention cost than a higher one.
+  expect_lt(
+    compute_expected_missed_cancer_prevention_cost_at_mortality_hr(
+      model_parameters, cancer_prevention_parameters, price_index_table, mortality_hazard_ratio = 0.033
+    ),
+    compute_expected_missed_cancer_prevention_cost_at_mortality_hr(
+      model_parameters, cancer_prevention_parameters, price_index_table, mortality_hazard_ratio = 1.70
+    )
+  )
+})
+
 test_that("only the standalone arm carries a missed-cancer-prevention cost, never the combined arm", {
   # Combined placement is guaranteed (probability_device_placed = 1), so
   # there is no lost-to-follow-up population to apply this cost to.

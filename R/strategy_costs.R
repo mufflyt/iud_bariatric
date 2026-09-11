@@ -84,6 +84,14 @@
 #' also protects against endometrial cancer (see `R/cancer_prevention.R`),
 #' so that is the outcome chained here instead, via
 #' `compute_expected_missed_cancer_prevention_cost()`.
+#'
+#' A SEPARATE, sensitivity-only function,
+#' `compute_expected_missed_cancer_prevention_cost_at_mortality_hr()`, is
+#' NOT called anywhere in this file's base-case tibbles. It exists only
+#' to answer "what if bariatric surgery also improves survival after an
+#' endometrial cancer diagnosis, not just incidence beforehand" -- the
+#' only real cohort estimate found (Lee et al. 2021) is not statistically
+#' significant, so it is excluded from every number above.
 
 #' Compute the expected cost of replacing an expelled device
 #'
@@ -262,6 +270,93 @@ compute_expected_missed_cancer_prevention_cost <- function(
   treatment_cost <- adjust_for_inflation(
     base::as.numeric(row$base_value[[1]]), row$dollar_year[[1]], reference_year, price_index_table
   )
+
+  loss_to_follow_up_probability * iud_absolute_risk_reduction * treatment_cost
+}
+
+#' SENSITIVITY-ONLY: expected missed-cancer-prevention cost if a
+#' mortality-specific (not incidence) bariatric-surgery hazard ratio were
+#' real
+#'
+#' NOT part of the base case. `compute_expected_missed_cancer_prevention_cost()`
+#' already applies `bariatric_surgery_endometrial_cancer_hazard_ratio`
+#' (Schauer et al. 2019) to endometrial cancer INCIDENCE. This function
+#' answers a separate question a reviewer asked directly: does having had
+#' bariatric surgery also change SURVIVAL once a woman is already
+#' diagnosed with endometrial cancer? The only real cohort-derived
+#' estimate found, Lee et al. 2021, gives a hazard ratio of 0.23 for
+#' all-cause mortality in the endometrial cancer cohort, but its 95% CI
+#' (0.033-1.70) crosses 1.0 by a wide margin and rests on fewer than 15
+#' deaths -- not distinguishable from no effect -- so it is deliberately
+#' excluded from the base case
+#' (`bariatric_surgery_endometrial_cancer_mortality_hazard_ratio`'s
+#' `base_value` is fixed at 1, i.e. no adjustment). This function exists
+#' only to answer "what if it were real": it re-derives
+#' `endometrial_cancer_treatment_cost` from its two decomposed components
+#' (`endometrial_cancer_cost_first_year`,
+#' `endometrial_cancer_cost_last_year_of_life`) and applies the mortality
+#' hazard ratio to just the last-year-of-life component, since that
+#' component alone is only incurred by patients who die of the disease.
+#'
+#' @param model_parameters Tibble from [load_model_parameters()].
+#' @param cancer_prevention_parameters Tibble from
+#'   [load_model_parameters()] pointed at
+#'   `config/cancer_prevention_parameters.csv`.
+#' @param price_index_table Tibble from [load_price_index_table()].
+#' @param mortality_hazard_ratio Numeric scalar to apply to the
+#'   mortality-given-diagnosis ratio; defaults to
+#'   `bariatric_surgery_endometrial_cancer_mortality_hazard_ratio`'s own
+#'   `base_value` (1, i.e. no adjustment, reproducing the base case's
+#'   `endometrial_cancer_treatment_cost` exactly). Pass 0.033 or 1.70 to
+#'   sweep Lee et al. 2021's 95% CI, or 0.23 for its point estimate.
+#' @return Numeric scalar, in `reference_dollar_year` dollars.
+compute_expected_missed_cancer_prevention_cost_at_mortality_hr <- function(
+  model_parameters,
+  cancer_prevention_parameters,
+  price_index_table,
+  mortality_hazard_ratio = get_parameter_value(
+    cancer_prevention_parameters,
+    "bariatric_surgery_endometrial_cancer_mortality_hazard_ratio"
+  )
+) {
+  loss_to_follow_up_probability <- get_parameter_value(
+    model_parameters, "standalone_loss_to_follow_up_probability"
+  )
+
+  lifetime_risk <- get_parameter_value(
+    cancer_prevention_parameters, "endometrial_cancer_lifetime_risk_usual_care_bmi40"
+  )
+  surgery_hazard_ratio <- get_parameter_value(
+    cancer_prevention_parameters, "bariatric_surgery_endometrial_cancer_hazard_ratio"
+  )
+  iud_incidence_ratio <- get_parameter_value(
+    cancer_prevention_parameters, "iud_endometrial_cancer_incidence_ratio"
+  )
+
+  post_surgery_no_iud_risk <- compute_post_surgery_baseline_risk(lifetime_risk, surgery_hazard_ratio)
+  iud_absolute_risk_reduction <- compute_iud_absolute_risk_reduction(post_surgery_no_iud_risk, iud_incidence_ratio)
+
+  death_risk <- get_parameter_value(
+    cancer_prevention_parameters, "endometrial_cancer_death_risk_usual_care_bmi40"
+  )
+  mortality_given_diagnosis_ratio <- death_risk / lifetime_risk
+
+  reference_year <- get_parameter_value(model_parameters, "reference_dollar_year")
+
+  first_year_row <- model_parameters |> dplyr::filter(.data$parameter == "endometrial_cancer_cost_first_year")
+  first_year_cost <- adjust_for_inflation(
+    base::as.numeric(first_year_row$base_value[[1]]), first_year_row$dollar_year[[1]],
+    reference_year, price_index_table
+  )
+  last_year_row <- model_parameters |>
+    dplyr::filter(.data$parameter == "endometrial_cancer_cost_last_year_of_life")
+  last_year_of_life_cost <- adjust_for_inflation(
+    base::as.numeric(last_year_row$base_value[[1]]), last_year_row$dollar_year[[1]],
+    reference_year, price_index_table
+  )
+
+  treatment_cost <- first_year_cost +
+    (mortality_given_diagnosis_ratio * mortality_hazard_ratio) * last_year_of_life_cost
 
   loss_to_follow_up_probability * iud_absolute_risk_reduction * treatment_cost
 }
