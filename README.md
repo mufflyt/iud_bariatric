@@ -486,6 +486,49 @@ don't get a postop visit at all. See
 `iud_string_check_followup_not_recommended` in
 `config/model_parameters.csv`.
 
+## Standalone loss to follow-up: a real, unpriced effectiveness gap
+
+Every cost figure above is a cost GIVEN the device gets placed. It
+doesn't answer a different, real question: does it actually get placed?
+Combined placement happens in the OR while the patient is already
+anesthetized for bariatric surgery -- there's no analog to a patient
+"not showing up," so it's treated as guaranteed
+(`probability_device_placed = 1`). Standalone requires the patient to
+return for a separate, later visit, and a real fraction of patients
+scheduled for exactly this kind of interval visit never do.
+
+`standalone_loss_to_follow_up_probability` = 25.7% (base/low) to 29.9%
+(high), from a real primary source: Baldwin MK, Edelman AB, Lim JY,
+Nichols MD, Bednarek PH, Jensen JT, "Comparison of intrauterine device
+insertion at 3 weeks versus 6 weeks postpartum: a randomized trial,"
+*Contraception* 2016;93(4):356-363 -- a 201-patient RCT of postpartum
+women intending interval IUD placement, where 74.3% (58/78, standard
+6-week group) to 70.1% (53/75, early 3-week group) returned for their
+scheduled visit as planned. This is a POSTPARTUM population, not a
+bariatric-surgery one -- no published data on IUD scheduling
+specifically around bariatric surgery was found -- but the underlying
+logistics phenomenon (returning for a deliberately scheduled interval
+procedure after a different major medical event) is structurally
+similar, and no better-matched source exists. Flagged provisional for
+that population mismatch.
+
+This is a genuine effectiveness gap a cost-minimization model (which
+assumes equal effectiveness by design) does not belong folding into a
+single dollar figure, so it's reported as its own number instead:
+`probability_device_placed` (standalone 0.743, combined 1.0) and
+`expected_cost_per_referred_patient` (cost per patient REFERRED to a
+strategy, not per patient who completes it). At base case, this actually
+WIDENS the standalone advantage on paper -- $645.39 vs. combined's
+$1,359.41, wider than the $868.63-vs-$1,359.41 per-completed-visit gap
+above -- because a missed visit costs nothing in this model. That's the
+point worth sitting with, not celebrating: standalone's extra apparent
+savings come from some patients never getting an IUD at all, not from a
+genuinely cheaper delivery of the same protection. `Rscript
+analysis/01_base_case.R` prints both numbers together for exactly this
+reason.
+
+Mutation-tested; see `docs/testing_philosophy.md`.
+
 ## Cancer-prevention estimate
 
 A separate module (`R/cancer_prevention.R`,

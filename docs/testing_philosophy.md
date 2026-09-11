@@ -216,3 +216,22 @@ two adjacent, near-identical wage-times-minutes cost functions.
   gynecologist's higher one, times 25 minutes) and the base-case
   `INDEPENDENT CONFIRMATION` test on `expected_total_cost`.
 - **Reverted, confirmed green:** all tests pass again.
+
+**2026-09-11 -- standalone's device-placement probability
+(`R/strategy_costs.R`, `compute_probability_device_placed()`).**
+
+Added alongside the new loss-to-follow-up feature (a real fraction of
+patients scheduled for a standalone interval visit never return for it
+at all, distinct from `standalone_office_failure_probability`, which
+covers an attempted-but-failed insertion). Planted defect: dropped the
+`1 -` complement, returning the raw loss-to-follow-up probability
+instead of the probability of actually placing the device, via a
+scripted `sed` substitution.
+
+- **Red:** 2 tests failed -- the direct unit-test assertion on
+  `compute_probability_device_placed(model_parameters, "standalone")`
+  (0.257 vs. the expected 0.743) and the base-case `INDEPENDENT
+  CONFIRMATION` test's assertion on `expected_cost_per_referred_patient`
+  (off by $422, since the wrong probability multiplier flows straight
+  into that derived cost).
+- **Reverted, confirmed green:** all tests pass again.

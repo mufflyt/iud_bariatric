@@ -40,4 +40,23 @@ summary_sentence <- base::paste0(
 base::message(summary_sentence)
 readr::write_lines(summary_sentence, "tables/summary_sentence.txt")
 
+coverage_sentence <- base::paste0(
+  "Coverage caveat: this cost comparison assumes both arms place the device with equal ",
+  "effectiveness. They do not. Combined placement happens in the OR while the patient is ",
+  "already anesthetized, so it is treated as guaranteed (probability_device_placed = 1). ",
+  "A real fraction of standalone patients never return for their scheduled visit at all ",
+  "(probability_device_placed = ", base::round(standalone_row$probability_device_placed, 3),
+  "), so per patient REFERRED to each strategy (not per patient who completes it), ",
+  "standalone costs an estimated $", base::round(standalone_row$expected_cost_per_referred_patient, 2),
+  " vs. combined's $", base::round(combined_row$expected_cost_per_referred_patient, 2),
+  " -- a WIDER gap in standalone's favor than the per-completed-visit comparison above, ",
+  "because a missed visit costs nothing in this model. That is precisely the problem: ",
+  "standalone's apparent extra savings here come from some patients never getting an ",
+  "IUD at all, not from a genuinely cheaper delivery of the same protection. Read the two ",
+  "numbers together, not in isolation."
+)
+
+base::message(coverage_sentence)
+readr::write_lines(coverage_sentence, "tables/coverage_sentence.txt")
+
 base::message("=== Base-case analysis complete ===")

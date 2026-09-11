@@ -1,3 +1,39 @@
+test_that("compute_probability_device_placed is 1 for combined, regardless of parameters", {
+  model_parameters <- test_model_parameters()
+  expect_equal(compute_probability_device_placed(model_parameters, "combined"), 1)
+})
+
+test_that("compute_probability_device_placed is 1 minus the loss-to-follow-up probability for standalone", {
+  model_parameters <- test_model_parameters()
+  expect_equal(compute_probability_device_placed(model_parameters, "standalone"), 1 - 0.257)
+})
+
+test_that("standalone's probability_device_placed is below 1; combined's is exactly 1", {
+  model_parameters <- test_model_parameters()
+  price_index_table <- test_price_index_table()
+  all_items_price_index_table <- test_all_items_price_index_table()
+  standalone_cost <- compute_standalone_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
+  combined_cost <- compute_combined_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
+
+  expect_lt(standalone_cost$probability_device_placed, 1)
+  expect_equal(combined_cost$probability_device_placed, 1)
+})
+
+test_that("expected_cost_per_referred_patient is expected_total_cost times probability_device_placed", {
+  model_parameters <- test_model_parameters()
+  price_index_table <- test_price_index_table()
+  all_items_price_index_table <- test_all_items_price_index_table()
+  standalone_cost <- compute_standalone_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
+  combined_cost <- compute_combined_strategy_cost(model_parameters, price_index_table, all_items_price_index_table)
+
+  expect_equal(
+    standalone_cost$expected_cost_per_referred_patient,
+    standalone_cost$expected_total_cost * standalone_cost$probability_device_placed
+  )
+  # combined's probability is 1, so this equals expected_total_cost exactly.
+  expect_equal(combined_cost$expected_cost_per_referred_patient, combined_cost$expected_total_cost)
+})
+
 test_that("compute_standalone_strategy_cost sums device + professional fee + office visit + expected replacement + expected escalation", {
   model_parameters <- test_model_parameters()
   price_index_table <- test_price_index_table()
@@ -298,5 +334,15 @@ test_that("INDEPENDENT CONFIRMATION: base-case incremental cost matches a from-s
   expect_equal(
     strategy_costs$societal_total_cost[strategy_costs$strategy == "standalone"],
     expected_standalone + patient_time_cost
+  )
+
+  loss_to_follow_up_probability <- get_parameter_value(model_parameters, "standalone_loss_to_follow_up_probability")
+  expect_equal(
+    strategy_costs$expected_cost_per_referred_patient[strategy_costs$strategy == "standalone"],
+    expected_standalone * (1 - loss_to_follow_up_probability)
+  )
+  expect_equal(
+    strategy_costs$expected_cost_per_referred_patient[strategy_costs$strategy == "combined"],
+    expected_combined
   )
 })

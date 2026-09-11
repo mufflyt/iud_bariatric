@@ -64,6 +64,15 @@
 #' total, not folded into it -- the standalone arm's dedicated office
 #' visit incurs this cost; the combined arm's does not, since the patient
 #' was already coming in for the bariatric surgery regardless.
+#'
+#' Both arms also report `probability_device_placed` and
+#' `expected_cost_per_referred_patient` (see
+#' `compute_probability_device_placed()`) -- combined is guaranteed
+#' (1.0); standalone is not, since a real fraction of patients never
+#' return for their scheduled visit at all. `expected_total_cost` stays a
+#' cost-GIVEN-completion figure throughout this file, matching every
+#' other cost component here; the completion-probability gap is reported
+#' alongside it, not folded into it.
 
 #' Compute the expected cost of replacing an expelled device
 #'
@@ -201,6 +210,39 @@ compute_patient_time_addon <- function(model_parameters, price_index_table) {
   )
 }
 
+#' Compute a strategy's probability of actually placing a device
+#'
+#' `expected_total_cost` elsewhere in this file is a cost-GIVEN-completion
+#' figure, matching how every other cost component here is defined; it
+#' does not capture whether the device gets placed at all. Combined
+#' placement happens in the OR while the patient is already anesthetized
+#' for bariatric surgery, so it is treated as guaranteed -- there is no
+#' analog to a patient "not showing up" for a procedure already underway.
+#' Standalone requires the patient to return for a separate, later visit,
+#' and a real fraction never do (see
+#' `standalone_loss_to_follow_up_probability`), distinct from
+#' `standalone_office_failure_probability` (an ATTEMPTED insertion that
+#' fails outright, already priced via `expected_escalation_cost`). This
+#' is a genuine effectiveness gap a cost-minimization model does not
+#' otherwise capture, since cost-minimization analysis assumes equal
+#' effectiveness across arms by design -- reported as its own number
+#' (and via `expected_cost_per_referred_patient`) rather than folded into
+#' or omitted from the headline dollar comparison.
+#'
+#' @param model_parameters Tibble from [load_model_parameters()].
+#' @param strategy Character scalar, `"standalone"` or `"combined"`.
+#' @return Numeric scalar probability in `[0, 1]`.
+compute_probability_device_placed <- function(model_parameters, strategy) {
+  if (strategy == "combined") {
+    return(1)
+  }
+
+  loss_to_follow_up_probability <- get_parameter_value(
+    model_parameters, "standalone_loss_to_follow_up_probability"
+  )
+  1 - loss_to_follow_up_probability
+}
+
 #' Compute the standalone strategy's expected cost
 #'
 #' @param model_parameters Tibble from [load_model_parameters()].
@@ -212,7 +254,8 @@ compute_patient_time_addon <- function(model_parameters, price_index_table) {
 #' @return A one-row tibble: `strategy`, `device_cost`, `professional_fee`,
 #'   `office_visit_cost`, `added_or_cost`, `expected_replacement_cost`,
 #'   `expected_escalation_cost`, `expected_total_cost`, `societal_addon`,
-#'   `societal_total_cost`.
+#'   `societal_total_cost`, `probability_device_placed`,
+#'   `expected_cost_per_referred_patient`.
 compute_standalone_strategy_cost <- function(
   model_parameters,
   price_index_table = load_price_index_table("data/cpi_medical_care.csv"),
@@ -259,7 +302,10 @@ compute_standalone_strategy_cost <- function(
     expected_perforation_cost = expected_perforation_cost,
     expected_total_cost = expected_total_cost,
     societal_addon = societal_addon,
-    societal_total_cost = expected_total_cost + societal_addon
+    societal_total_cost = expected_total_cost + societal_addon,
+    probability_device_placed = compute_probability_device_placed(model_parameters, "standalone"),
+    expected_cost_per_referred_patient = expected_total_cost *
+      compute_probability_device_placed(model_parameters, "standalone")
   )
 }
 
@@ -360,7 +406,10 @@ compute_combined_strategy_cost <- function(
     expected_perforation_cost = expected_perforation_cost,
     expected_total_cost = expected_total_cost,
     societal_addon = 0,
-    societal_total_cost = expected_total_cost
+    societal_total_cost = expected_total_cost,
+    probability_device_placed = compute_probability_device_placed(model_parameters, "combined"),
+    expected_cost_per_referred_patient = expected_total_cost *
+      compute_probability_device_placed(model_parameters, "combined")
   )
 }
 

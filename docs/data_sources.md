@@ -1050,6 +1050,71 @@ strings, pain, suspected expulsion) would be a different, separately-
 justified cost; that is not what this CDC guidance addresses, and is not
 modeled here either.
 
+## Standalone loss to follow-up (added 2026-09-11)
+
+Prompted by a request to build the loss-to-follow-up parameter for
+standalone visits, following up on an item flagged much earlier in this
+session's own review of what data would strengthen this model.
+
+**The distinction from what's already modeled.** This project already
+has `standalone_office_failure_probability`: the probability that a
+patient who SHOWS UP for the standalone visit has an insertion attempt
+that fails outright, requiring escalation. Loss to follow-up is a
+different, upstream phenomenon: the probability a scheduled patient
+never shows up for the visit AT ALL. No prior parameter in this model
+captured that.
+
+**Source, directly verified.** Baldwin MK, Edelman AB, Lim JY, Nichols
+MD, Bednarek PH, Jensen JT, "Comparison of intrauterine device insertion
+at 3 weeks versus 6 weeks postpartum: a randomized trial," *Contraception*
+2016;93(4):356-363, doi:10.1016/j.contraception.2015.12.006, PMID
+26686914. Directly verified via the Europe PMC abstract, 2026-09-11.
+Prospective RCT, 201 postpartum women intending interval IUD placement,
+randomized to a 3-week (n=101) vs. standard 6-week (n=100) scheduled
+return visit: "Most participants returned for IUD placement as
+scheduled; 70.1% (53/75) in the early group, 74.3% (58/78) in the
+standard group." `standalone_loss_to_follow_up_probability` base/low
+value is the standard (6-week) group's complement (1 - 0.743 = 0.257);
+high value is the early (3-week) group's complement (1 - 0.701 = 0.299).
+
+**Population mismatch, flagged explicitly, same as other borrowed
+parameters in this project.** This is a postpartum cohort returning for
+a scheduled visit after childbirth, not a bariatric-surgery population.
+No published loss-to-follow-up data specific to scheduling an IUD visit
+around bariatric surgery was found. Used as the best available
+real-world analog because the underlying logistics phenomenon --
+returning for a deliberately scheduled interval procedure after a
+different major medical event -- is structurally similar, the same
+reasoning already applied to Saito-Tom et al. 2015 (a general
+obesity-not-bariatric-surgery cohort) and Masten et al. 2024 (an
+adolescent, not adult, cohort) elsewhere in this model.
+
+**Why this is reported separately rather than priced into
+`expected_total_cost`.** This project's cost-minimization framing
+assumes equal effectiveness across arms by design -- that's what
+distinguishes cost-minimization from cost-effectiveness analysis. Loss
+to follow-up is a genuine violation of that assumption (the two arms do
+NOT achieve equal device-placement rates), so folding it into the
+existing dollar figure would either misleadingly discount standalone's
+cost (since a missed visit costs nothing directly: no device purchased,
+no professional fee billed) or require fabricating a downstream cost
+pathway (what happens to a patient who doesn't get the IUD -- alternative
+contraception, an unintended pregnancy, nothing at all) that no data in
+this project supports. Instead, `compute_probability_device_placed()`
+reports the completion-probability gap directly (standalone 0.743,
+combined 1.0) and `expected_cost_per_referred_patient` reports what that
+implies for cost-per-patient-referred, alongside, not instead of, the
+existing per-completed-visit cost.
+
+**The result is genuinely counterintuitive and worth stating plainly:**
+per referred patient, standalone's advantage WIDENS, from $868.63-vs-
+$1,359.41 (per completed visit) to $645.39-vs-$1,359.41 (per referred
+patient) -- because in this model, a missed visit costs nothing. That
+is not a point in standalone's favor; it is the mechanism by which an
+unpriced effectiveness gap can look like a cost advantage if the two
+numbers are not read together. `analysis/01_base_case.R` now prints both
+explicitly for this reason (see `tables/coverage_sentence.txt`).
+
 ## Cancer-prevention estimate (added 2026-09-10)
 
 A separate module, `R/cancer_prevention.R` /
