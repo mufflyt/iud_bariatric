@@ -6,7 +6,7 @@ test_that("compute_payer_mix_weighted_revenue matches an independent from-scratc
   expect_equal(
     compute_payer_mix_weighted_revenue(model_parameters),
     expected,
-    tolerance = 0.01
+    tolerance = 1e-6
   )
 })
 
@@ -28,10 +28,10 @@ test_that("compute_bounded_displaced_case_opportunity_cost matches an independen
 
   result <- compute_bounded_displaced_case_opportunity_cost(model_parameters)
 
-  expect_equal(result$contribution_margin, expected_margin, tolerance = 0.01)
-  expect_equal(result$opportunity_cost_of_added_minutes, expected_base, tolerance = 0.01)
-  expect_equal(result$opportunity_cost_of_added_minutes_low, expected_low, tolerance = 0.01)
-  expect_equal(result$opportunity_cost_of_added_minutes_high, expected_high, tolerance = 0.01)
+  expect_equal(result$contribution_margin, expected_margin, tolerance = 1e-6)
+  expect_equal(result$opportunity_cost_of_added_minutes, expected_base, tolerance = 1e-6)
+  expect_equal(result$opportunity_cost_of_added_minutes_low, expected_low, tolerance = 1e-6)
+  expect_equal(result$opportunity_cost_of_added_minutes_high, expected_high, tolerance = 1e-6)
 })
 
 test_that("compute_bounded_displaced_case_opportunity_cost's base-case margin is positive, using Denver Health's own payer-specific rates", {

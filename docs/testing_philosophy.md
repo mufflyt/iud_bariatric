@@ -6,6 +6,58 @@ before it's trusted, not just asserted to work.
 
 ## Mutation-test log
 
+**2026-09-12 -- missing-rate NA propagation
+(`R/opportunity_cost_national.R`, `compute_multi_hospital_opportunity_cost()`).**
+
+Added when the real 10-hospital dataset was built (Washington has no
+Medicare rate; Pennsylvania and Arkansas have no Medicaid rate -- each
+a genuine, documented data gap, not an oversight). The function must
+propagate these as `NA`, not silently treat a missing rate as zero
+revenue. Planted defect: wrapped each rate in `dplyr::coalesce(...,
+0)` before the weighted-sum calculation -- a realistic "helpful fix"
+mistake someone might make while trying to get every row to return a
+number instead of investigating why three rows were NA.
+
+- **Red:** 4 tests failed -- all three "must be NA" assertions
+  (Washington, Pennsylvania, Arkansas) now returned a real, silently
+  wrong dollar figure instead of `NA`, and the count of complete rows
+  changed from 7 to 10.
+- **Reverted, confirmed green:** all tests pass again.
+
+**2026-09-12 -- state-level labor-related-share selection, AND a
+tolerance-semantics bug caught along the way
+(`R/opportunity_cost_national.R`, `compute_state_medicare_payment()`).**
+
+Added when the Denver Health opportunity-cost exercise was extended
+into an illustrative national, state-by-state sweep using each state's
+own real Medicare wage index. Planted defect: flipped the comparison
+direction selecting the labor-related share (`wage_index < 1.0` instead
+of `wage_index > 1.0`), via a scripted `sed` substitution -- a realistic
+off-by-comparison-direction mistake.
+
+- **First red attempt caught something more important than the planted
+  bug.** The two per-state recomputation tests (a high-wage-index state,
+  California, and a low-wage-index state, Mississippi) both used
+  `tolerance = 0.01`, intending "off by at most a cent." testthat's
+  `tolerance` argument is actually RELATIVE, not absolute -- so `0.01`
+  meant "off by at most 1%," which is roughly $96 of slack on a $9,651
+  Mississippi payment. The mutation's real $85.50 error slipped under
+  that 1% threshold and the test PASSED even though the code was wrong
+  -- only the California test (a larger $199 error against a $14,267
+  base, just over its own 1% threshold) caught anything. A test that
+  passes on genuinely wrong output is worse than no test: it was fixed
+  before being trusted, not after. Tolerances were tightened to `1e-6`
+  (recomputations using the identical formula, so no real rounding
+  slack is needed) across both this file and
+  `test-opportunity-cost-sensitivity.R`, which had the identical latent
+  problem, caught by inspection once the first instance surfaced it.
+- **Red (after the tolerance fix):** both the California and
+  Mississippi recomputation tests failed, each off by exactly the size
+  of using the wrong labor-related share (4 percentage points) for
+  that state's wage index.
+- **Reverted, confirmed green:** all tests pass again, now with
+  tolerances tight enough to mean something.
+
 **2026-09-12 -- displaced-case opportunity-cost margin's sign
 (`R/opportunity_cost_sensitivity.R`,
 `compute_bounded_displaced_case_opportunity_cost()`).**

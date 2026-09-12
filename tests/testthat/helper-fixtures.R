@@ -24,3 +24,15 @@ test_all_items_price_index_table <- function() {
 test_cancer_prevention_parameters <- function() {
   load_model_parameters(base::file.path(repo_root_path(), "config/cancer_prevention_parameters.csv"))
 }
+
+test_state_wage_index_table <- function() {
+  load_state_wage_index_table(
+    base::file.path(repo_root_path(), "data/medicare_wage_index_by_state_fy2026.csv")
+  )
+}
+
+test_multi_hospital_rates_table <- function() {
+  load_multi_hospital_rates_table(
+    base::file.path(repo_root_path(), "data/bariatric_drg621_multi_hospital_rates.csv")
+  )
+}

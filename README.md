@@ -398,6 +398,60 @@ figure found) is now the weaker link in the calculation, not the
 revenue side. Run `Rscript analysis/06_opportunity_cost_sensitivity.R`
 to reproduce. Mutation-tested; see `docs/testing_philosophy.md`.
 
+## Illustrative national sweep, then real data for 10 actual hospitals
+
+Asked directly: can the Denver Health approach be repeated for every
+state? Not the same way -- Medicaid has no single national methodology
+(every state runs its own system) and commercial rates live in
+individual hospital files, not state-level ones, so literally repeating
+the Denver Health deep-dive 50 times isn't practical. `R/opportunity_
+cost_national.R` first built an illustrative 52-state sweep from real
+national datasets (CMS's own FY2026 wage index drives a per-state
+Medicare estimate; two single national ratios estimate Medicaid and
+commercial payments). Then, told directly to get better data, it
+replicated the Denver Health method itself -- pulling a real hospital's
+own CMS price-transparency file plus that state's own Medicaid rate
+files -- for **9 more hospitals across 9 more states** (GA, TX, FL, OH,
+WA, PA, MS, AR, NY).
+
+**This real, 10-hospital sample changed the picture in two important
+ways.** First: Denver Health's Medicare rate ($27,902.21) turns out to
+be an outlier, not typical -- Ohio State's own MRF explicitly lists a
+traditional Medicare rate of just **$9,479**, and seven other hospitals
+cluster in the $13,700-$16,150 range. Second, and more useful: the
+commercial-to-Medicare ratio across 9 real hospitals ranges from **117%
+(Mississippi) to 354% (Ohio State)**, mean 203%, median 165% --
+confirming RAND's national 254% figure is actually a reasonable
+*central* estimate, it just doesn't describe any single hospital well.
+The Medicaid-to-Medicare ratio across 7 hospitals ranges from **25%
+(Florida) to 98% (NYU Langone)**, mean 59% -- far below MACPAC's stale
+2010-data 106% figure. These empirical ratios
+(`empirical_commercial_to_medicare_ratio`,
+`empirical_medicaid_to_medicare_ratio`) now replace the borrowed
+national ones in the 52-state sweep, which shifted the sweep's own
+result from 42-of-52-positive to **0-of-52-positive** (-$561 to -$7) --
+a real, honest reversal, not a bug, since the sweep's weak link was
+always the state-average Medicare estimate underneath the ratios, not
+just the ratios themselves.
+
+**The real, strongest evidence is `compute_multi_hospital_opportunity_
+cost()`**: each of the 7 hospitals with complete data gets its OWN
+actual Medicare, Medicaid, and commercial rates, no state-average or
+borrowed-ratio approximation on the revenue side at all. Result:
+**genuinely mixed**, from **-$242 (Mississippi)** to **+$648 (NYU
+Langone)**, with Colorado (+$422), Georgia (+$82), and Ohio (-$4) in
+between. Three hospitals (WA, PA, AR) are reported as `NA`, not
+fabricated, because a real, public per-hospital Medicare or Medicaid
+rate could not be found for them (Arkansas Medicaid isn't even
+DRG-based -- a real structural finding, not a data gap). Run `Rscript
+analysis/07_opportunity_cost_national.R` to reproduce both the sweep
+and the real comparison; see `docs/data_sources.md` for the full
+citation trail on every one of the 10 hospitals. Mutation-tested twice
+(the state-formula labor-share logic, and the missing-rate NA
+propagation -- the first mutation-test cycle also caught a real testing
+bug, an overly loose relative tolerance that let a genuine error slip
+through undetected; see `docs/testing_philosophy.md`).
+
 ## Two surgeons, real coordination cost
 
 Two real gaps closed after the model owner clarified this institution's
