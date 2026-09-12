@@ -314,6 +314,89 @@ low/high range to sample from yet.)
 
 Mutation-tested; see `docs/testing_philosophy.md`.
 
+## Does the model capture the opportunity cost of a displaced case?
+
+A direct question worth answering plainly: if the combined arm's extra
+10 minutes of OR time means the surgical team can't fit in another
+bariatric case (or another gynecologic procedure) that day, is that
+lost-case cost priced anywhere in this model? **No.**
+`direct_room_cost_per_minute` ($20.90/minute, 2014 dollars) is
+literally Childers & Maggard-Gibbons's (*JAMA Surg* 2018;153(4)) own
+"direct cost" figure for OR time -- staff wages, supplies, the
+resources actually consumed by those 10 minutes -- and that paper is
+explicit that a displaced case's lost revenue is a separate, additional
+cost they deliberately excluded from that figure: "If saving time
+allows the OR to schedule an additional case, this potential revenue
+should be included as a cost. Opportunity costs vary and are likely to
+be highest for short operations... where scheduling additional cases is
+more likely. However, opportunity cost requires a case to be
+profitable, which, in many circumstances, depends primarily on payer
+mix."
+
+**Checked whether a real, generalizable dollar figure for this exists
+anywhere in the literature, rather than assuming it doesn't.** It
+doesn't, and the literature's own reason why is itself informative.
+Macario A, Dexter F, Traub RD. "Hospital profitability per hour of
+operating room time can vary among surgeons." *Anesth Analg.*
+2001;93(3):669-675. 2,848 elective cases across 94 surgeons at Stanford:
+contribution margin per OR-hour was **negative for 26% of cases**, with
+large surgeon-to-surgeon variability, concluding hospitals should
+"increase the hours of lucrative cases, rather than encourage surgeons
+to do more and more cases" -- i.e. this quantity is inherently
+case-mix- and payer-mix-specific, not a stable rate. Saporito A, La
+Regina D, Perren A, et al. "Contribution margin per hour of operating
+room to reallocate unutilized operating room time: a cost-effectiveness
+analysis." *Braz J Anesthesiol.* 2023;73(3):243-249. A more recent,
+different-country cohort (Swiss, ten procedure types) confirms the same
+underlying variability and only reports portfolio-level reallocation
+revenue, not a single per-minute rate usable here. No study isolates
+this figure for bariatric surgery or an endoscopy suite specifically.
+
+**Not built in, for a real reason rather than an oversight:**
+fabricating a single point estimate from a quantity the field's own
+primary literature says is negative over a quarter of the time and
+varies enormously by surgeon and payer mix would be exactly the kind of
+false precision this project's parameter discipline exists to avoid.
+One real asymmetry worth flagging: Childers's own paper says this
+matters most for SHORT, high-throughput procedures where "scheduling
+additional cases is more likely" -- a description that fits
+colonoscopy (15-30 minute slots) far better than bariatric surgery
+(60-120+ minute cases, 1-3 per OR day, where a 10-minute overrun is far
+less likely to literally bump an entire additional case). Checked
+directly: the sibling `emb_colonoscopy` project has the identical gap
+(same Childers direct-cost figure, no opportunity-cost parameter
+either), documented in its own `docs/data_sources.md`.
+
+**Follow-up: real, payer-specific data was found and a bounded estimate
+was built (2026-09-12), not wired into the base case.**
+`R/opportunity_cost_sensitivity.R` computes a Medicare-payer
+contribution margin directly from two primary sources: CMS's own FY2026
+IPPS payment for MS-DRG 621 (routine bariatric surgery, no
+complications), $10,976.27, computed from the actual downloaded CMS
+Table 5 relative weight and Final Rule rates; minus Ng et al. 2023's
+national blended hospitalization cost (HCUP cost-to-charge-ratio
+methodology, 687,866 patients), $11,711.70. **The result is a NEGATIVE
+margin, -$735.43** -- Medicare-payer bariatric cases lose money on
+average nationally, consistent with the field's own literature (Macario
+et al. found margin negative in 26% of cases generally). Spread across
+a typical case's blended 110.6 minutes (Young et al. 2015, NSQIP,
+n=24,117) as a linear-share approximation, the combined arm's 10-minute
+add-on implies an opportunity cost of **-$66.49** (i.e. no real added
+cost -- if anything, a small saving), with a range of -$382.25 to
++$168.59 across Ng et al.'s own cost IQR. This is representative of
+roughly 83% of Denver Health's actual payer mix (Medicare, Medicaid,
+and uninsured combined, per an AHA case study citing Colorado's 2023
+Hospital Expenditure Report); the remaining ~17% (commercial) is not
+quantified, since no verified bariatric-specific commercial rate was
+found anywhere. Still not added to `expected_total_cost`: this is a
+linear approximation of what is really a discrete threshold effect (see
+the file's own docstring), and the honest result is that even a
+best-effort, real-data attempt finds this cost is small or negative for
+most of this hospital's actual case mix -- reinforcing, with real
+numbers this time, why it was left out rather than guessed at. Run
+`Rscript analysis/06_opportunity_cost_sensitivity.R` to reproduce.
+Mutation-tested; see `docs/testing_philosophy.md`.
+
 ## Two surgeons, real coordination cost
 
 Two real gaps closed after the model owner clarified this institution's

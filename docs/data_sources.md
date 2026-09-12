@@ -843,6 +843,216 @@ describe, not just at the single base-case point estimate.
 
 Mutation-tested; see `docs/testing_philosophy.md`.
 
+## Opportunity cost of a displaced case: checked, real, not quantifiable here (added 2026-09-12)
+
+Prompted directly: if adding 10 minutes to a bariatric-surgery case for
+IUD placement (or adding time to a colonoscopy for endometrial biopsy,
+in the sibling `emb_colonoscopy` project) means the OR/procedure suite
+can't fit in another case that day, is that lost-case cost priced
+anywhere? Checked directly rather than assumed either way.
+
+**Confirmed: not currently captured, and the source paper itself says
+so explicitly.** `direct_room_cost_per_minute` ($20.90/minute, 2014
+dollars) is Childers CP, Maggard-Gibbons M. "Understanding Costs of
+Care in the Operating Room." *JAMA Surg.* 2018;153(4). Verified
+directly via the open-access PMC full text (PMC5875376), 2026-09-12.
+The paper defines "direct costs" as "costs attributable to the revenue
+center, such as staff salaries or supplies" -- $20.40 of $37.37 total
+per minute in the inpatient setting (54.6%), with wages/benefits
+dominating direct costs (~two-thirds). It separately and explicitly
+addresses the exact question asked here, under its own "opportunity
+cost" discussion, and says plainly that this is NOT included in the
+direct-cost figure: "If saving time allows the OR to schedule an
+additional case, this potential revenue should be included as a cost.
+Opportunity costs vary and are likely to be highest for short
+operations (i.e., myringotomy or cataract surgery), where scheduling
+additional cases is more likely. However, opportunity cost requires a
+case to be profitable, which, in many circumstances, depends primarily
+on payer mix." The paper's own indirect-cost analysis further notes
+that reducing OR time has "little effect on the overall price of the
+operation" once indirect (largely fixed) costs are considered --
+consistent with, but a distinct point from, the case-displacement
+opportunity cost asked about here.
+
+**Searched directly for whether a real, generalizable per-minute or
+per-hour opportunity-cost figure exists anywhere in the published
+literature, specifically so as not to assume "no data exists" without
+checking.** Two primary sources found and verified:
+- Macario A, Dexter F, Traub RD. "Hospital profitability per hour of
+  operating room time can vary among surgeons." *Anesth Analg.*
+  2001;93(3):669-675. Directly verified via the Europe PMC abstract,
+  2026-09-12. Stanford University School of Medicine, 2,848 elective
+  surgical cases across 94 surgeons. Contribution margin per OR-hour
+  was NEGATIVE for 26% of cases, with substantial (Cohen's f = 0.29)
+  surgeon-to-surgeon variability. Conclusion: hospitals should "increase
+  the hours of lucrative cases, rather than encourage surgeons to do
+  more and more cases" -- i.e. the field's own classic reference on this
+  exact quantity treats it as inherently case-specific and
+  payer-mix-specific, not a rate that generalizes across settings.
+- Saporito A, La Regina D, Perren A, Gabutti L, Anselmi L, Cafarotti S,
+  Mongelli F. "Contribution margin per hour of operating room to
+  reallocate unutilized operating room time: a cost-effectiveness
+  analysis." *Braz J Anesthesiol.* 2023;73(3):243-249.
+  doi:10.1016/j.bjane.2021.03.024. Directly verified via the Europe PMC
+  abstract, 2026-09-12. A Swiss hospital, ten procedure types, 14.5
+  hours of reallocated unused OR capacity: prioritizing by
+  contribution-margin-per-hour raised earnings from $87,117 to $140,444
+  over the study period versus random allocation. Confirms the same
+  underlying variability in a newer, different-country cohort, but
+  reports only portfolio-level reallocation revenue across ten
+  heterogeneous procedures, not a single per-minute or per-hour rate
+  usable as a model parameter, and is not U.S.-health-system data
+  (inconsistent with this project's CMS-anchored, U.S.-payer-mix basis
+  used everywhere else).
+
+Neither study, nor any other found, isolates this figure for bariatric
+surgery specifically, or for an endoscopy/colonoscopy suite
+specifically -- both are general OR-economics studies from single
+institutions, decades apart, agreeing on one thing: the quantity is too
+variable (by surgeon, case type, and payer mix) and too often negative
+to serve as a stable rate.
+
+**Decision: not built into either project's cost engine.** Compressing
+a quantity the field's own primary literature reports as negative over
+a quarter of the time, and varying by more than an order of magnitude
+by surgeon, into a single low/base/high parameter would be exactly the
+kind of fabricated precision this project's parameter discipline exists
+to avoid -- there is no honest single number to write into
+`config/model_parameters.csv` here. Documented instead as a real,
+checked, and deliberately unquantified limitation.
+
+**A real asymmetry between the two sibling projects, worth flagging
+even though neither can act on it yet.** Childers's own paper says
+opportunity cost is "likely to be highest for short operations... where
+scheduling additional cases is more likely" -- a description matching
+colonoscopy (15-30 minute slots, high daily throughput) far better than
+bariatric surgery (60-120+ minute cases, typically 1-3 per OR day,
+where a 10-minute overrun is far less likely to literally displace an
+entire additional case). This suggests the gap is more consequential
+for `emb_colonoscopy` than for this project, even though neither has a
+sourced number to close it with. Checked directly: `emb_colonoscopy`
+has the identical gap (same Childers `direct_room_cost_per_minute` and
+`procedure_room_cost_per_minute` figures, no opportunity-cost parameter
+either) -- see that project's own `docs/data_sources.md` for the
+mirrored entry.
+
+### Follow-up: real payer-specific data was found, and a bounded estimate was built (2026-09-12)
+
+Prompted directly: rather than stop at "no generalizable rate exists,"
+try to assemble the actual payer-specific pieces (Medicare/Medicaid/
+commercial reimbursement, a real cost estimate, and this hospital's
+payer mix) and see how far real data can go. It went far enough to
+produce an honest, checkable, if bounded, answer.
+
+**Medicare payment for the relevant DRG, computed directly from primary
+CMS sources, not a secondary paraphrase.** Downloaded and parsed
+directly, 2026-09-12:
+- `https://www.cms.gov/files/zip/fy2026-ipps-fr-table-5.zip` (CMS FY2026
+  IPPS Final Rule Table 5): MS-DRG 621, "O.R. PROCEDURES FOR OBESITY
+  WITHOUT CC/MCC" (the routine, no-complication case -- the
+  most-representative DRG for an elective, uncomplicated bariatric-
+  surgery patient), relative weight **1.5084**. (DRG 619, WITH MCC,
+  weight 2.8874; DRG 620, WITH CC, weight 1.6003 -- both also confirmed
+  directly, but not used here since this project models the routine
+  case.)
+- DataGen/Wisconsin Hospital Association, "Medicare IPPS Final Rule
+  Payment Brief, Federal Fiscal Year 2026" (citing the August 4, 2025
+  Federal Register final rule, CMS-1833-F): FFY 2026 Federal Operating
+  Rate **$6,752.61**, Federal Capital Rate **$524.15**.
+- Payment = (6752.61 + 524.15) x 1.5084 = **$10,976.27**. This
+  independently reproduces (to the dollar) a secondary-source figure a
+  prior search pass had found but could not verify ("$10,976, CY2026
+  unadjusted national average") -- a strong cross-check that the
+  calculation method is right, now backed by a from-scratch computation
+  against the primary CMS tables rather than trusting that secondary
+  claim on its own. Deliberately UNADJUSTED for hospital-specific wage
+  index, IME, DSH, or outlier payments -- Denver Health's actual
+  payment for this DRG would differ from this national base-rate
+  figure; that adjustment was not pursued further given the bounding
+  (not precision) purpose of this exercise.
+
+**National cost, from a large, recent, methodologically standard
+source.** Ng AP, Bakhtiyar SS, Verma A, et al. "Cost Variation in
+Bariatric Surgery Across the United States." *Am Surg.*
+2023;89(10):4061-4065. doi:10.1177/00031348231177937. PMID 37203440.
+Directly verified via Europe PMC, 2026-09-12. 2016-2019 Nationwide
+Readmissions Database (HCUP), 687,866 patients across 2,435 hospitals,
+costs derived via HCUP's standard cost-to-charge-ratio methodology
+(NOT charges). National case mix: 69.9% sleeve gastrectomy, 30.1%
+gastric bypass. Median cost: sleeve $10,900 (IQR $8,600-$14,000);
+bypass $13,600 (IQR $10,300-$18,000). Blended by the paper's own case
+mix: 0.699*10900 + 0.301*13600 = **$11,711.70**; blended IQR bounds
+(same weights applied to each procedure's own IQR bound, an
+approximation, not a true joint IQR): $9,111.70 to $15,204.00.
+
+**Resulting Medicare-payer contribution margin: -$735.43 (NEGATIVE).**
+$10,976.27 (payment) - $11,711.70 (cost) = -$735.43. This is a real,
+checkable finding, not an assumption -- and it is directly consistent
+with the general OR-economics literature already cited above (Macario
+et al. found contribution margin negative for 26% of cases generally;
+Medicare specifically is well known in the broader hospital-margin
+literature, e.g. MedPAC's annual reports, to run negative on average
+across most inpatient service lines).
+
+**Typical case duration, to convert the case-level margin into a
+per-minute rate.** Young MT, Gebhart A, Phelan MJ, Nguyen NT. "Use and
+Outcomes of Laparoscopic Sleeve Gastrectomy vs Laparoscopic Gastric
+Bypass: Analysis of the American College of Surgeons NSQIP." *J Am Coll
+Surg.* 2015;220(5):880-885. Directly verified via Europe PMC,
+2026-09-12. n=24,117 (a different, earlier cohort than Ng et al. 2023,
+with a different case mix: 20.5% sleeve/79.5% bypass here, vs. Ng's
+69.9%/30.1% -- reflecting bariatric surgery's real shift toward sleeve
+gastrectomy over time between the two cohorts). Mean operative time:
+sleeve 101 minutes, bypass 133 minutes. Blended using Ng et al. 2023's
+more current case-mix weights (a real, flagged simplification --
+combining two different studies' data rather than one study measuring
+both): 0.699*101 + 0.301*133 = **110.6 minutes**.
+
+**Denver Health's actual payer mix, so the Medicare-payer calculation
+above can be put in context.** An American Hospital Association case
+study, citing Colorado's 2023 Hospital Expenditure Report, directly
+verified 2026-09-12: 83% of Denver Health discharges are Medicare,
+Medicaid, or uninsured combined; uninsured specifically = 15.9% of
+total care. By subtraction, commercial/other is approximately 17%. The
+underlying primary Colorado Hospital Expenditure Report itself was not
+independently retrieved and cross-checked -- this is a secondary
+citation of it, flagged as such.
+
+**The calculation, and its explicit limitation.** Margin ($-735.43) /
+typical case minutes (110.6) = -$6.65/minute; x
+`combined_arm_added_minutes` (10) = **-$66.49**, with a range of
+-$382.25 to +$168.59 across Ng et al.'s cost IQR (a wider cost range
+means a wider margin range: the low-cost bound gives the highest
+opportunity-cost estimate, +$168.59; the high-cost bound gives the
+lowest, -$382.25). Implemented in
+`R/opportunity_cost_sensitivity.R`'s `compute_bounded_displaced_case_
+opportunity_cost()`, mutation-tested (see `docs/testing_philosophy.md`),
+and NOT called anywhere in the base-case cost engine or either
+sensitivity module -- confirmed by a dedicated regression test that
+perturbing this exercise's inputs leaves `expected_total_cost`
+unchanged. The linear, dollars-per-minute treatment is an explicit
+SIMPLIFYING ASSUMPTION, spelled out in the function's own docstring:
+the real mechanism is a discrete threshold (10 added minutes either
+does or does not push a whole case off the day's schedule), not a
+smooth, continuously-accruing cost. This bound should be read as an
+order-of-magnitude check, not a precise dollar figure.
+
+**Bottom line.** Even after assembling the best available real,
+payer-specific data (rather than stopping at "no generic rate exists"),
+the honest finding is that the opportunity cost of the combined arm's
+added minutes is small and plausibly negative for roughly 83% of this
+hospital's actual bariatric-surgery case volume. This reinforces,
+now with real numbers rather than only a literature-based argument,
+the earlier decision not to add a large opportunity-cost line item to
+the base case. The remaining ~17% (commercial-payer) share of Denver
+Health's case mix is NOT quantified: no verified bariatric-surgery-
+specific commercial negotiated rate was found for this or any hospital,
+despite direct attempts (Denver Health's own CMS machine-readable file
+exists but is a large binary spreadsheet that could not be parsed in
+this pass; a Colorado HCPF Medicaid base-rate file was similarly
+located but not successfully downloaded). Both remain genuine, flagged
+next steps, not resolved gaps papered over.
+
 ## Two-surgeon coordination cost (added 2026-09-10)
 
 Prompted by the model owner directly clarifying this institution's actual

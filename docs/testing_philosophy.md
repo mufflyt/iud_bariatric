@@ -6,6 +6,26 @@ before it's trusted, not just asserted to work.
 
 ## Mutation-test log
 
+**2026-09-12 -- displaced-case opportunity-cost margin's sign
+(`R/opportunity_cost_sensitivity.R`,
+`compute_bounded_displaced_case_opportunity_cost()`).**
+
+Added when a real, payer-specific sensitivity exercise was built for
+whether the combined arm's added OR minutes carry a hidden
+opportunity-cost-of-a-displaced-case (see
+`docs/data_sources.md`). Planted defect: changed the contribution-
+margin subtraction to addition (`medicare_payment + national_cost`
+instead of `medicare_payment - national_cost`), via a scripted `sed`
+substitution -- a realistic sign-flip mistake, and one that would have
+silently inverted the entire finding (a large positive "margin" instead
+of the real, checkable negative one).
+
+- **Red:** 5 tests failed -- the independent-recomputation test on
+  `contribution_margin` and `opportunity_cost_of_added_minutes`, both
+  "must be negative" assertions (the mutated version produced a large
+  positive value instead), and the low/high-bound ordering test.
+- **Reverted, confirmed green:** all tests pass again.
+
 **2026-09-11 -- gamma-fit standard-error scaling
 (`R/sensitivity_probabilistic.R`, `fit_gamma_moments()`).**
 
