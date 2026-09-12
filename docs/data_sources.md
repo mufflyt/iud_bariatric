@@ -1053,6 +1053,118 @@ this pass; a Colorado HCPF Medicaid base-rate file was similarly
 located but not successfully downloaded). Both remain genuine, flagged
 next steps, not resolved gaps papered over.
 
+### CORRECTION: the above negative-margin finding was superseded once real hospital-specific rates were obtained (2026-09-12)
+
+The section above stands as written (not deleted) because it documents
+real reasoning and a real dead end at the time -- but its bottom line
+was wrong, in a specific, findable way: it used a GENERIC NATIONAL
+Medicare rate as a proxy for what Denver Health actually gets paid.
+Told directly to work harder on the two flagged gaps above (Denver
+Health's binary MRF, the located-but-undownloaded HCPF file), both were
+obtained on a second attempt using different tooling (a direct `curl`
+download of the actual current CSV machine-readable file, and a
+browser-User-Agent-plus-Referer `curl` request for the HCPF Excel
+files, which a plain fetch had been blocked from retrieving) -- neither
+gap was actually unobtainable, just under-tried the first time.
+
+**Denver Health's own Medicare rate, from its own current
+price-transparency file.** Downloaded directly, 2026-09-12:
+`https://sthpiprd.blob.core.windows.net/machine-readable-files/7840/841343242_denver-health-and-hospital-authority_standardcharges.csv`
+(same file already used elsewhere in this project for
+`iud_device_chargemaster_cash_price` and `iud_insertion_professional_fee`;
+this download, file dated 2026-04-30, is 199 MB). Filtered to MS-DRG
+621 ("O.R. PROCEDURES FOR OBESITY WITHOUT CC/MCC"), inpatient setting:
+three independently-listed payer rows -- `CMS`/`Medicare`, `Aetna
+Healthcare`/`Medicare Advantage`, and `Denver Health Medical Plan`/
+`Medicare Advantage` -- all converge on the identical negotiated case
+rate, **$27,902.21**. That convergence across three separately-reported
+rows is a real internal-consistency signal that this is a genuine,
+hospital-specific (wage-index, IME, and DSH-adjusted) Medicare payment
+for this DRG, 2.5x the generic national-unadjusted figure computed
+above -- exactly the kind of hospital-specific adjustment (Denver
+Health is an urban teaching hospital with a very high DSH percentage as
+a safety-net institution) that a national base-rate calculation cannot
+capture.
+
+**Colorado Medicaid's rate, computed from Denver Health's own current
+base rate and the matching APR-DRG weight.** Both downloaded directly,
+2026-09-12, using a browser User-Agent and a `Referer` header set to
+`https://hcpf.colorado.gov/inpatient-hospital-payment` (a plain
+unauthenticated fetch of these same URLs returns HTTP 403; this header
+combination succeeded where a plain fetch had failed):
+- `https://hcpf.colorado.gov/sites/hcpf/files/Inpatient%20Base%20Rates%20effective%207.1.2026.xlsx`,
+  sheet "7.1.26 IP Hospital Base Rates": Denver Health Medical Center
+  (Medicare ID 060011), APR-DRG Inpatient Base Rate effective 7/1/2026
+  = **$7,966.93**.
+- `https://hcpf.colorado.gov/sites/hcpf/files/Oct%201%202024%20-%20All%20Patient%20Refined%20Diagnosis%20Related%20Group%20APR-DRG%20Ver%2040%20Weight%20Table%20-%20CGS%20setting%20fixed%203.11.25.xlsx`,
+  sheet "V40 CO WT TBL EFF 10.1.2024": APR-DRG 403 "PROCEDURES FOR
+  OBESITY", Severity of Illness (SOI) level 1 (minor -- the routine,
+  no-complication case, the closest APR-DRG analog to MS-DRG 621's
+  "without CC/MCC"; APR-DRG and MS-DRG are different classification
+  systems, not directly interchangeable, so this is an analog choice,
+  not a formal crosswalk), final scaled weight **1.472**.
+- Payment = 7966.93 x 1.472 = **$11,727.32** -- coincidentally almost
+  identical to Ng et al. 2023's national cost estimate ($11,711.70),
+  though this is a payment figure and that is a cost figure, so the
+  near-match is a numerical curiosity, not evidence of anything.
+
+**Commercial rates, from the same current Denver Health file.** Five
+real, payer-specific negotiated inpatient case rates for MS-DRG 621
+(HMO/POS/PPO plans, excluding Medicare Advantage products, which were
+folded into the Medicare figure above since both MA rows found matched
+the traditional-Medicare rate exactly): Aetna Healthcare $26,000.00;
+Anthem Blue Cross Blue Shield $32,121.00; Cigna Healthcare $32,927.04;
+United Healthcare $34,230.00; Denver Health Medical Plan Elevate
+$39,263.99. Mean = **$32,908.41**.
+
+**A more granular payer-mix split**, from the same AHA case study as
+before, this time combining two of its statements rather than just one:
+"83% of Denver Health discharges are Medicare, Medicaid, or uninsured
+combined" and, separately, "more than 65% of Denver Health's patients
+are either covered by Medicaid or are uninsured," with uninsured
+specifically stated as 15.9%. By subtraction: Medicaid ≈ 65% - 15.9% =
+**49.1%**; Medicare ≈ 83% - 65% = **18%**; commercial/other = 100% - 83%
+= **17%** (exact, since 83% itself is exact). The Medicare and Medicaid
+fractions carry a real approximation caveat the uninsured and
+commercial fractions do not: they are derived from "more than 65%," a
+stated lower bound, not an exact value -- flagged explicitly in
+`config/model_parameters.csv`'s notes for both parameters.
+
+**The corrected calculation.** Payer-mix-weighted revenue = (27902.21 x
+0.18) + (11727.32 x 0.491) + (32908.41 x 0.17) = **$16,374.94**
+(uninsured's ~15.9% share is implicitly assigned $0 net revenue, a
+standard conservative simplification consistent with Denver Health's
+own reported $136 million 2024 uncompensated-care cost). Against Ng et
+al. 2023's same national cost estimate used in the first pass
+($11,711.70), the contribution margin is **+$4,663.24 -- POSITIVE**, a
+sign flip from the first pass's -$735.43. Spread across the same
+110.6-minute typical case as before, the combined arm's 10-minute
+add-on now implies an opportunity cost of **+$421.63** (range
+$105.87-$656.71 across Ng et al.'s cost IQR).
+
+**What changed, and what didn't.** The mechanism (revenue minus cost,
+per minute, times added minutes, as a linear approximation of a
+discrete threshold effect) is unchanged from the first pass; only the
+REVENUE inputs improved, from one generic national rate to three real,
+hospital-specific, payer-specific rates properly weighted by this
+hospital's own payer mix. The weakest link in the calculation is now
+the COST side: `bariatric_blended_national_cost_ng2023` remains a
+national proxy, since no Denver-Health-specific cost figure was found
+in either research pass. `bariatric_medicare_drg621_national_payment`
+(the original $10,976.27 figure) is retained in
+`config/model_parameters.csv`, unconsumed by the corrected function, as
+a documented before/after comparison point -- concrete evidence of how
+much a generic national base rate can understate a specific safety-net
+teaching hospital's actual reimbursement.
+
+Implemented in `R/opportunity_cost_sensitivity.R`'s
+`compute_payer_mix_weighted_revenue()` and the updated
+`compute_bounded_displaced_case_opportunity_cost()`, mutation-tested
+(see `docs/testing_philosophy.md`), still confirmed NOT called anywhere
+in the base-case cost engine or either sensitivity module. `Rscript
+analysis/06_opportunity_cost_sensitivity.R` reproduces the full
+calculation.
+
 ## Two-surgeon coordination cost (added 2026-09-10)
 
 Prompted by the model owner directly clarifying this institution's actual

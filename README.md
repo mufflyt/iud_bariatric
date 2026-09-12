@@ -368,34 +368,35 @@ directly: the sibling `emb_colonoscopy` project has the identical gap
 either), documented in its own `docs/data_sources.md`.
 
 **Follow-up: real, payer-specific data was found and a bounded estimate
-was built (2026-09-12), not wired into the base case.**
-`R/opportunity_cost_sensitivity.R` computes a Medicare-payer
-contribution margin directly from two primary sources: CMS's own FY2026
-IPPS payment for MS-DRG 621 (routine bariatric surgery, no
-complications), $10,976.27, computed from the actual downloaded CMS
-Table 5 relative weight and Final Rule rates; minus Ng et al. 2023's
-national blended hospitalization cost (HCUP cost-to-charge-ratio
-methodology, 687,866 patients), $11,711.70. **The result is a NEGATIVE
-margin, -$735.43** -- Medicare-payer bariatric cases lose money on
-average nationally, consistent with the field's own literature (Macario
-et al. found margin negative in 26% of cases generally). Spread across
-a typical case's blended 110.6 minutes (Young et al. 2015, NSQIP,
-n=24,117) as a linear-share approximation, the combined arm's 10-minute
-add-on implies an opportunity cost of **-$66.49** (i.e. no real added
-cost -- if anything, a small saving), with a range of -$382.25 to
-+$168.59 across Ng et al.'s own cost IQR. This is representative of
-roughly 83% of Denver Health's actual payer mix (Medicare, Medicaid,
-and uninsured combined, per an AHA case study citing Colorado's 2023
-Hospital Expenditure Report); the remaining ~17% (commercial) is not
-quantified, since no verified bariatric-specific commercial rate was
-found anywhere. Still not added to `expected_total_cost`: this is a
-linear approximation of what is really a discrete threshold effect (see
-the file's own docstring), and the honest result is that even a
-best-effort, real-data attempt finds this cost is small or negative for
-most of this hospital's actual case mix -- reinforcing, with real
-numbers this time, why it was left out rather than guessed at. Run
-`Rscript analysis/06_opportunity_cost_sensitivity.R` to reproduce.
-Mutation-tested; see `docs/testing_philosophy.md`.
+was built (2026-09-12), not wired into the base case -- and the first
+version of this finding was WRONG in a way worth stating plainly rather
+than quietly fixing.** The first pass used a single generic,
+national-unadjusted Medicare payment (CMS's own FY2026 IPPS rate for
+MS-DRG 621, $10,976.27) and found a NEGATIVE margin against Ng et al.
+2023's national cost estimate ($11,711.70), implying no real
+opportunity cost. Asked to dig harder, Denver Health's own current CMS
+price-transparency file and Colorado Medicaid's own published rate
+tables were downloaded and parsed directly. They show this hospital's
+actual rates run well above the generic national figures for EVERY
+payer -- Denver Health's own Medicare rate for this DRG alone is
+$27,902.21, 2.5x the national-unadjusted estimate. Weighting Denver
+Health's own Medicare ($27,902.21), Colorado Medicaid ($11,727.32, its
+own base rate x the matching APR-DRG weight), and commercial (mean of
+five real negotiated rates, $32,908.41) figures by its approximate
+payer mix (~18% Medicare, ~49% Medicaid, ~17% commercial, uninsured
+assigned $0) gives a payer-mix-weighted revenue of $16,374.94 --
+**against the same $11,711.70 national cost, the margin flips POSITIVE:
++$4,663.24.** Spread across a typical case's blended 110.6 minutes as
+the same linear-share approximation as before, the combined arm's
+10-minute add-on now implies an opportunity cost of **+$421.63** (range
+$105.87-$656.71 across Ng et al.'s cost IQR) -- a real, moderate added
+cost, not a wash. Still not added to `expected_total_cost`: this
+remains a linear approximation of what is really a discrete threshold
+effect (see the file's own docstring), and the cost-side estimate
+(Ng et al., still a national proxy, no Denver-Health-specific cost
+figure found) is now the weaker link in the calculation, not the
+revenue side. Run `Rscript analysis/06_opportunity_cost_sensitivity.R`
+to reproduce. Mutation-tested; see `docs/testing_philosophy.md`.
 
 ## Two surgeons, real coordination cost
 

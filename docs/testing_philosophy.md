@@ -26,6 +26,29 @@ of the real, checkable negative one).
   positive value instead), and the low/high-bound ordering test.
 - **Reverted, confirmed green:** all tests pass again.
 
+**2026-09-12 -- payer-mix weighting's commercial-fraction term
+(`R/opportunity_cost_sensitivity.R`, `compute_payer_mix_weighted_revenue()`).**
+
+Added when the opportunity-cost exercise above was rebuilt using real,
+hospital-specific payer rates (Denver Health's own CMS
+price-transparency file and Colorado Medicaid's own published rate
+tables, both downloaded and parsed directly) instead of a single
+generic national Medicare figure -- a correction that reversed the
+overall finding's sign (see the file's own "REVISION HISTORY" docstring
+and `docs/data_sources.md`). Planted defect: dropped the
+`* commercial_fraction` multiplication on the commercial-rate term
+(i.e. added the FULL commercial rate to the weighted sum instead of
+its ~17% share), via a scripted `sed` substitution -- a realistic
+copy-paste-and-forget-one-term mistake in a three-term weighted-average
+formula.
+
+- **Red:** 5 tests failed -- the direct `compute_payer_mix_weighted_
+  revenue()` unit test and all four downstream
+  `compute_bounded_displaced_case_opportunity_cost()` assertions,
+  each off by exactly the unweighted-vs-weighted commercial-rate
+  difference ($27,314.14 too high on `weighted_revenue`).
+- **Reverted, confirmed green:** all tests pass again.
+
 **2026-09-11 -- gamma-fit standard-error scaling
 (`R/sensitivity_probabilistic.R`, `fit_gamma_moments()`).**
 

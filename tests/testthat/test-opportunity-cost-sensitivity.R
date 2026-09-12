@@ -1,18 +1,30 @@
+test_that("compute_payer_mix_weighted_revenue matches an independent from-scratch recomputation", {
+  model_parameters <- test_model_parameters()
+
+  expected <- 27902.21 * 0.18 + 11727.32 * 0.491 + 32908.41 * 0.17
+
+  expect_equal(
+    compute_payer_mix_weighted_revenue(model_parameters),
+    expected,
+    tolerance = 0.01
+  )
+})
+
 test_that("compute_bounded_displaced_case_opportunity_cost matches an independent from-scratch recomputation", {
   model_parameters <- test_model_parameters()
 
-  medicare_payment <- 10976.27
+  weighted_revenue <- 27902.21 * 0.18 + 11727.32 * 0.491 + 32908.41 * 0.17
   national_cost <- 11711.70
   typical_case_minutes <- 110.6
   added_minutes <- get_parameter_value(model_parameters, "combined_arm_added_minutes")
   cost_low <- 9111.70
   cost_high <- 15204.00
 
-  expected_margin <- medicare_payment - national_cost
+  expected_margin <- weighted_revenue - national_cost
   expected_per_minute <- expected_margin / typical_case_minutes
   expected_base <- expected_per_minute * added_minutes
-  expected_high <- ((medicare_payment - cost_low) / typical_case_minutes) * added_minutes
-  expected_low <- ((medicare_payment - cost_high) / typical_case_minutes) * added_minutes
+  expected_high <- ((weighted_revenue - cost_low) / typical_case_minutes) * added_minutes
+  expected_low <- ((weighted_revenue - cost_high) / typical_case_minutes) * added_minutes
 
   result <- compute_bounded_displaced_case_opportunity_cost(model_parameters)
 
@@ -22,18 +34,18 @@ test_that("compute_bounded_displaced_case_opportunity_cost matches an independen
   expect_equal(result$opportunity_cost_of_added_minutes_high, expected_high, tolerance = 0.01)
 })
 
-test_that("compute_bounded_displaced_case_opportunity_cost's base-case margin is negative, given real Medicare payment vs. real national cost", {
-  # A real, checkable finding, not an assumption: national Medicare
-  # payment for the routine bariatric-surgery DRG is below the national
-  # blended cost of the procedure.
+test_that("compute_bounded_displaced_case_opportunity_cost's base-case margin is positive, using Denver Health's own payer-specific rates", {
+  # A real, checkable finding, not an assumption: once hospital-specific
+  # (not generic national) rates are used for every payer, weighted
+  # revenue exceeds the national cost proxy.
   model_parameters <- test_model_parameters()
   result <- compute_bounded_displaced_case_opportunity_cost(model_parameters)
 
-  expect_lt(result$contribution_margin, 0)
-  expect_lt(result$opportunity_cost_of_added_minutes, 0)
+  expect_gt(result$contribution_margin, 0)
+  expect_gt(result$opportunity_cost_of_added_minutes, 0)
 })
 
-test_that("a lower national-cost bound produces a higher (less negative) opportunity-cost estimate than a higher cost bound", {
+test_that("a lower national-cost bound produces a higher opportunity-cost estimate than a higher cost bound", {
   model_parameters <- test_model_parameters()
   result <- compute_bounded_displaced_case_opportunity_cost(model_parameters)
 
@@ -64,7 +76,7 @@ test_that("compute_bounded_displaced_case_opportunity_cost is not consumed by an
   # Wildly different opportunity-cost inputs must not change expected_total_cost.
   perturbed_parameters <- override_model_parameters(
     model_parameters,
-    list(bariatric_medicare_drg621_national_payment = 999999)
+    list(bariatric_denver_health_medicare_rate = 999999)
   )
   combined_cost_after <- compute_combined_strategy_cost(
     perturbed_parameters, price_index_table, all_items_price_index_table, cancer_prevention_parameters
